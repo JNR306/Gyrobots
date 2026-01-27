@@ -5,8 +5,10 @@
 //  Created by Jan-Niklas Röhlig on 18.12.25.
 //
 
+import UIKit
 import SpriteKit
 import GameplayKit
+import CoreMotion
 
 class GameScene: SKScene {
     
@@ -19,6 +21,7 @@ class GameScene: SKScene {
     let moveSpeed: CGFloat = 300.0
     let jumpForce: CGFloat = 800.0
     let playerSize = CGSize(width: 50, height: 100)
+    let smallJumpForce: CGFloat = 450.0
     
     // terrain
     let chunkWidth: CGFloat = 30000
@@ -49,6 +52,31 @@ class GameScene: SKScene {
         generateTerrainAndObstacles()
         setupPlayer()
     }
+    
+    // MARK: - Multiplayer
+    weak var mp: MultipeerManager?
+    var roleIsJumpSender = false
+    
+    // MARK: - Gyro Input
+    /// Horizontal input from tilt in range [-1, 1]
+    var tiltX: CGFloat = 0
+
+    /// Deadzone to prevent drift when device is almost flat
+    let tiltDeadzone: CGFloat = 0.08
+
+    // MARK: - Multipeer Stuff
+    func applyRemoteTilt(_ x: CGFloat) {
+        tiltX = x
+    }
+
+    func applyRemoteJump(force: CGFloat?) {
+        if let f = force {
+            jump(with: f)
+        } else {
+            jump()
+        }
+    }
+
     
     // MARK: - Setup
     
@@ -140,24 +168,36 @@ class GameScene: SKScene {
     // MARK: - Game Loop
     
     override func update(_ currentTime: TimeInterval) {
-        // horizontal movement
-        if isMovingLeft {
-            player.physicsBody?.velocity.dx = -moveSpeed
-        } else if isMovingRight {
-            player.physicsBody?.velocity.dx = moveSpeed
+        // --- horizontal movement (gyro first, touches as fallback) ---
+        var xInput = tiltX
+
+        // apply deadzone
+        if abs(xInput) < tiltDeadzone { xInput = 0 }
+
+        if xInput != 0 {
+            player.physicsBody?.velocity.dx = xInput * moveSpeed
+        } else {
+            // fallback to existing touch controls (optional)
+            if isMovingLeft {
+                player.physicsBody?.velocity.dx = -moveSpeed
+            } else if isMovingRight {
+                player.physicsBody?.velocity.dx = moveSpeed
+            } else {
+                // optional: stop sliding forever when no input
+                player.physicsBody?.velocity.dx = 0
+            }
         }
-        
+
         // cam
         if let cam = gameCamera, let p = player {
             let targetX = p.position.x
-            // Smoothly look at player Y + offset
             let targetY = p.position.y + 100
-            
             let currentY = cam.position.y
             let newY = currentY + (targetY - currentY) * 0.1
             cam.position = CGPoint(x: targetX, y: newY)
         }
     }
+
     
     // MARK: - Actions
     
@@ -179,12 +219,21 @@ class GameScene: SKScene {
         return hitGround
     }
     
-    func jump() {
+    func jump(with force: CGFloat) {
         if isGrounded() {
             player.physicsBody?.velocity.dy = 0
-            player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: jumpForce))
+            player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: force))
         }
     }
+
+    func jump() {
+        jump(with: jumpForce)
+    }
+
+    func smallJump() {
+        jump(with: smallJumpForce)
+    }
+
     
     func startCrouch() {
         if !isCrouching {
@@ -208,7 +257,13 @@ extension GameScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let loc = touch.location(in: self.camera!)
-        if loc.y > 50 { jump() }
+        if roleIsJumpSender { return }
+        if loc.y > 50 {
+            jump()
+            if roleIsJumpSender {
+                mp?.send(MPMessage(type: .jump, value: nil))
+            }
+        }
         else if loc.x < -80 { isMovingLeft = true }
         else if loc.x > 80 { isMovingRight = true }
         else { startCrouch() }
