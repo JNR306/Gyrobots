@@ -52,11 +52,11 @@ struct GameOverlay: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .frame(width: 100, height: 100)
-                    .border(.red, width: 10)
+                    //.border(.red, width: 10)
                 }
             }
         }
-        .border(.yellow, width: 10)
+        //.border(.yellow, width: 10)
     }
 }
 
