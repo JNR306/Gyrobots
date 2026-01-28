@@ -14,17 +14,15 @@ struct GameView: View {
     
     var body: some View {
         ZStack {
-            Group {
-                if let gameScene = appState.gameScene {
-                    SpriteView(scene: gameScene)
-                        //.border(.yellow, width: 3)
-                        .ignoresSafeArea()
-                } else {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .foregroundStyle(.white)
-                }
-            }
+            SpriteView(scene: appState.gameScene)
+                //.border(.yellow, width: 3)
+                .ignoresSafeArea()
+        }
+        .onAppear {
+            appState.startSensors()
+        }
+        .onDisappear {
+            appState.stopSensors()
         }
     }
 }
@@ -43,7 +41,22 @@ struct GameOverlay: View {
                 Text("EXIT")
             }
             Spacer()
+            if appState.role == .jump {
+                HStack {
+                    Spacer()
+                    Button {
+                        appState.handleJumpAction()
+                    } label: {
+                        Text("JUMP")
+                            .foregroundStyle(.white)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: 100, height: 100)
+                    .border(.red, width: 10)
+                }
+            }
         }
+        .border(.yellow, width: 10)
     }
 }
 
