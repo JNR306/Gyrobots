@@ -43,11 +43,6 @@ struct Gyrobots: App {
                 }
             }
             .environment(appState)
-            .onAppear {
-                if appState.gameScene == nil {
-                    appState.prepareGame()
-                }
-            }
         }
     }
 }
