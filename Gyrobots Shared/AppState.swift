@@ -12,15 +12,21 @@ import SpriteKit
 import CoreMotion
 
 enum CurrentView {
-    case MAIN_MENU, GAME
+    case MAIN_MENU, GAME, RESULT
 }
 
 enum Role {
     case gyro, jump
 }
 
+enum Level {
+    case DESERT, CITY
+}
+
 @Observable
 class AppState {
+    
+    static let shared: AppState = AppState()
     
     var gameScene: GameScene
     
@@ -31,6 +37,17 @@ class AppState {
     
     var role: Role = .gyro
     
+    //let locationHelper = LocationHelper()
+    
+    var currentTime: Double? = nil
+    var bestTime: Double? = nil
+    
+    var currentLevel: Level? = .DESERT
+    
+    var startTime: Double = 0
+    var elapsedTime: Double = 0
+    var isTimerRunning = false
+    
     init() {
         let scene = GameScene()
         scene.scaleMode = .resizeFill
@@ -39,6 +56,8 @@ class AppState {
         
         setupGame()
         setupMultipeer()
+        
+        //locationHelper.start()
     }
     
     private func setupGame() {
@@ -89,5 +108,31 @@ class AppState {
     func handleJumpAction() {
         self.gameScene.smallJump()
         mp.send(MPMessage(type: .jump, value: Double(self.gameScene.smallJumpForce)))
+    }
+    
+    func startTimer() {
+        startTime = CFAbsoluteTimeGetCurrent()
+        isTimerRunning = true
+    }
+    
+    func updateTimer() {
+        if isTimerRunning {
+            elapsedTime = CFAbsoluteTimeGetCurrent() - startTime
+        }
+    }
+    
+    func stopTimer() {
+        if isTimerRunning {
+            elapsedTime = CFAbsoluteTimeGetCurrent() - startTime
+            isTimerRunning = false
+        }
+    }
+    
+    var formattedTime: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        
+        return formatter.string(from: elapsedTime) ?? "00:00"
     }
 }

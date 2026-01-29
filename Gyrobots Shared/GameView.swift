@@ -20,6 +20,7 @@ struct GameView: View {
         }
         .onAppear {
             appState.startSensors()
+            appState.startTimer()
         }
         .onDisappear {
             appState.stopSensors()
@@ -33,13 +34,25 @@ struct GameOverlay: View {
     
     var body: some View {
         VStack {
-            Button {
-                withAnimation {
-                    appState.currentView = .MAIN_MENU
+            HStack {
+                Button {
+                    withAnimation {
+                        appState.currentView = .MAIN_MENU
+                    }
+                } label: {
+                    Text("EXIT")
                 }
-            } label: {
-                Text("EXIT")
+                Spacer()
+                Text("\(appState.formattedTime)")
+                    .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
+                    .monospacedDigit()
+                    .foregroundStyle(.terrain)
+                    .contentTransition(.numericText(countsDown: false))
+                Image(.clock)
+                    .resizable()
+                    .frame(width: 40, height: 40)
             }
+            .padding()
             Spacer()
             if appState.role == .jump {
                 HStack {

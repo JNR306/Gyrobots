@@ -10,9 +10,7 @@ import SwiftUI
 
 @main
 struct Gyrobots: App {
-    
-    @State private var appState = AppState()
-    
+        
     var body: some Scene {
         WindowGroup {
             ZStack {
@@ -24,7 +22,7 @@ struct Gyrobots: App {
                   .ignoresSafeArea()
                   //.border(.blue, width: 7)
                 Group {
-                    switch appState.currentView {
+                    switch AppState.shared.currentView {
                     case .MAIN_MENU:
                         MainMenu()
                             .id("MainMenu")
@@ -39,10 +37,12 @@ struct Gyrobots: App {
                             .id("GameView")
                             .zIndex(2.1)
                             .transition(.push(from: .bottom))
+                    case .RESULT:
+                        ResultView()
                     }
                 }
             }
-            .environment(appState)
+            .environment(AppState.shared)
         }
     }
 }

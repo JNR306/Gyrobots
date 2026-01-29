@@ -10,7 +10,14 @@ import SpriteKit
 import GameplayKit
 import CoreMotion
 
-class GameScene: SKScene {
+struct PhysicsCategory {
+    static let none: UInt32 = 0      // 0
+    static let player: UInt32 = 0x1    // 1
+    static let finishLine: UInt32 = 0x2 // 2
+    static let terrain: UInt32 = 0x4    // 4
+}
+
+class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // MARK: - Nodes
     var player: SKShapeNode!
@@ -22,9 +29,6 @@ class GameScene: SKScene {
     let jumpForce: CGFloat = 800.0
     let playerSize = CGSize(width: 50, height: 100)
     let smallJumpForce: CGFloat = 450.0
-    
-    // terrain
-    let chunkWidth: CGFloat = 30000
     
     // MARK: - Noise Generator
     let noise: GKNoise = {
@@ -44,12 +48,23 @@ class GameScene: SKScene {
     }
     
     override func didMove(to view: SKView) {
-        self.backgroundColor = SKColor.darkGray
+        self.physicsWorld.contactDelegate = self
+        
+        // Setting background color
+        switch AppState.shared.currentLevel {
+        case .DESERT:
+            self.backgroundColor = SKColor(named: "BackgroundDesert") ?? .white
+        case .CITY:
+            self.backgroundColor = SKColor(named: "BackgroundCity") ?? .white
+        case .none:
+            self.backgroundColor = .white
+        }
+        
         
         self.physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
         
         setupCamera()
-        generateTerrainAndObstacles()
+        generateTerrain()
         setupPlayer()
     }
     
@@ -60,15 +75,15 @@ class GameScene: SKScene {
     // MARK: - Gyro Input
     /// Horizontal input from tilt in range [-1, 1]
     var tiltX: CGFloat = 0
-
+    
     /// Deadzone to prevent drift when device is almost flat
     let tiltDeadzone: CGFloat = 0.08
-
+    
     // MARK: - Multipeer Stuff
     func applyRemoteTilt(_ x: CGFloat) {
         tiltX = x
     }
-
+    
     func applyRemoteJump(force: CGFloat?) {
         if let f = force {
             jump(with: f)
@@ -76,7 +91,7 @@ class GameScene: SKScene {
             jump()
         }
     }
-
+    
     
     // MARK: - Setup
     
@@ -90,9 +105,9 @@ class GameScene: SKScene {
         let rect = CGRect(x: -playerSize.width/2, y: 0, width: playerSize.width, height: playerSize.height)
         player = SKShapeNode(rect: rect)
         player.fillColor = SKColor.red
-        player.strokeColor = SKColor.white
+        player.strokeColor = SKColor.clear
         
-        let startY = getNoiseHeight(at: 0) + 100 // to have player not intersect terrain
+        let startY = 100
         player.position = CGPoint(x: 0, y: startY)
         
         // Physics
@@ -102,50 +117,105 @@ class GameScene: SKScene {
         player.physicsBody?.friction = 0.2
         player.physicsBody?.restitution = 0.0
         player.physicsBody?.mass = 1.0
+        player.physicsBody?.categoryBitMask = PhysicsCategory.player
+        player.physicsBody?.collisionBitMask = PhysicsCategory.terrain
+        player.physicsBody?.contactTestBitMask = PhysicsCategory.finishLine
         
         addChild(player)
     }
     
     // MARK: - Procedural Terrain (Perlin Noise)
     
-    func getNoiseHeight(at x: CGFloat) -> CGFloat {
+    func getNoiseValue(at x: CGFloat) -> CGFloat {
         let position = vector_float2(Float(x), 0)
         let noiseValue = noise.value(atPosition: position)
-        
-        return CGFloat(noiseValue) * 150.0 // scale of the terrain
+        return CGFloat(noiseValue)
     }
     
-    func generateTerrainAndObstacles() {
+    let startX: CGFloat = 0
+    let endX: CGFloat = 5000
+    let leftFixedX: CGFloat = -2000
+    let rightFixedX: CGFloat = 7000
+    let topFixedY: CGFloat = 2000
+    let bottomFixedY: CGFloat = -2000
+    
+    func generateTerrain() {
         let path = CGMutablePath()
-        let startX: CGFloat = -1000
-        let endX: CGFloat = chunkWidth
-        let bottomFixedY: CGFloat = -2000 //close shape under bottom edge of screen
         
-        path.move(to: CGPoint(x: startX, y: bottomFixedY))
-        path.addLine(to: CGPoint(x: startX, y: getNoiseHeight(at: startX)))
+        path.move(to: CGPoint(x: leftFixedX, y: bottomFixedY))
+        path.addLine(to: CGPoint(x: leftFixedX, y: topFixedY))
+        path.addLine(to: CGPoint(x: startX-200, y: topFixedY))
+        path.addLine(to: CGPoint(x: startX-200, y: 0))
         
-        for x in stride(from: startX, to: endX, by: 40) {
-            let y = getNoiseHeight(at: CGFloat(x))
-            path.addLine(to: CGPoint(x: CGFloat(x), y: y))
-            
-            if x > 500 && Int(x) % 1000 == 0 { //do random obtsacle every around 1000 pixels
-                spawnRandomObstacle(at: CGFloat(x), groundY: y)
+        var isTerrainHigh: [Bool] = Array(repeating: false, count: Int((endX-startX))/500)
+        for i in 1..<isTerrainHigh.count {
+            isTerrainHigh[i] = getNoiseValue(at: CGFloat(i*500)) > 0 ? true : false
+        }
+        print(isTerrainHigh)
+        for i in 0..<isTerrainHigh.count {
+            if i == 0 {
+                path.addLine(to: CGPoint(x: i*500, y: 0))
+            } else {
+                path.addLine(to: CGPoint(x: i*500, y: isTerrainHigh[i-1] ? 100 : 0))
             }
+            path.addLine(to: CGPoint(x: i*500+100, y: isTerrainHigh[i] ? 100 : 0))
         }
         //close shape
-        path.addLine(to: CGPoint(x: endX, y: bottomFixedY))
+        path.addLine(to: CGPoint(x: endX+200, y: isTerrainHigh.last ?? false ? 100 : 0))
+        path.addLine(to: CGPoint(x: endX+200, y: topFixedY))
+        path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
+        path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()
         
         //terrain node
         terrainNode = SKShapeNode(path: path)
-        terrainNode.strokeColor = SKColor.lightGray
-        terrainNode.lineWidth = 2
-        terrainNode.fillColor = SKColor.black
+        terrainNode.fillColor = SKColor(named: "Terrain") ?? .white
+        terrainNode.strokeColor = .clear
         
         terrainNode.physicsBody = SKPhysicsBody(edgeLoopFrom: path) //hitbox is of course same path
         terrainNode.physicsBody?.isDynamic = false
         terrainNode.physicsBody?.friction = 0.5 //interacts with player friciton
+        
         addChild(terrainNode)
+        
+        addFinishLine()
+    }
+    
+    func addFinishLine() {
+        //Finish line
+        
+        let dashedLine = SKNode()
+        let dashLength: CGFloat = 40
+        let gapLength: CGFloat = 20
+        var currentY: CGFloat = topFixedY
+        
+        while currentY > bottomFixedY {
+            let dash = SKShapeNode(rectOf: CGSize(width: 10, height: dashLength))
+            dash.fillColor = SKColor(named: "Terrain") ?? .white
+            dash.strokeColor = .clear
+            dash.position = CGPoint(x: endX, y: currentY)
+            dashedLine.addChild(dash)
+            
+            currentY -= dashLength + gapLength
+        }
+        
+        dashedLine.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 10, height: topFixedY-bottomFixedY), center: CGPoint(x: endX, y: 0))
+        dashedLine.physicsBody?.isDynamic = false
+        dashedLine.physicsBody?.categoryBitMask = PhysicsCategory.finishLine
+        dashedLine.physicsBody?.collisionBitMask = PhysicsCategory.none
+        dashedLine.physicsBody?.contactTestBitMask = PhysicsCategory.player
+        
+        addChild(dashedLine)
+    }
+    
+    func didBegin(_ contact: SKPhysicsContact) {
+        let contactMask = contact.bodyA.categoryBitMask | contact.bodyB.categoryBitMask
+        
+        // Check if the combination is Player + FinishLine
+        if contactMask == (PhysicsCategory.player | PhysicsCategory.finishLine) {
+            AppState.shared.stopTimer()
+            AppState.shared.currentView = .RESULT
+        }
     }
     
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
@@ -196,6 +266,8 @@ class GameScene: SKScene {
             let newY = currentY + (targetY - currentY) * 0.1
             cam.position = CGPoint(x: targetX, y: newY)
         }
+        
+        AppState.shared.updateTimer()
     }
 
     
