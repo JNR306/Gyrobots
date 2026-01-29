@@ -11,7 +11,7 @@ import MultipeerConnectivity
 
 final class MultipeerManager: NSObject {
 
-    static let serviceType = "gyrobots-mp"   // must be <= 15 chars, lowercase, digits, hyphen
+    static let serviceType = "gyrobots-mp"
 
     let myPeerID = MCPeerID(displayName: UIDevice.current.name)
     private(set) var session: MCSession!
