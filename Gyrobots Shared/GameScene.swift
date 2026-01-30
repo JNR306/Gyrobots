@@ -104,6 +104,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func configureLevel(seed: Int32) {
+        print("Seed: \(seed)")
         let source = GKPerlinNoiseSource(
             frequency: 0.002,
             octaveCount: 3,
@@ -350,12 +351,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         // Check if the combination is Player + FinishLine
         if contactMask == (PhysicsCategory.player | PhysicsCategory.finishLine) {
             if !isRemoteViewOnly {
-                AppState.shared.stopTimer()
-                mp?.sendImportant(MPMessage(type: .finished))
                 destructLevel()
-                withAnimation {
-                    AppState.shared.currentView = .RESULT
-                }
+                mp?.sendImportant(MPMessage(type: .finished, a: AppState.shared.elapsedTime))
+                AppState.shared.finishGame()
             }
         }
     }

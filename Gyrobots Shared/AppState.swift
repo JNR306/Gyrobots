@@ -86,17 +86,23 @@ class AppState {
     func createRoom() {
         isHost = true
         mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
-        currentView = .WAITING
+        withAnimation {
+            currentView = .WAITING
+        }
     }
 
     func browseRooms() {
         isHost = false
         mp.startBrowsingRooms()
-        currentView = .ROOM_LIST
+        withAnimation {
+            currentView = .ROOM_LIST
+        }
     }
     
     func join(room: Room) {
-        currentView = .WAITING
+        withAnimation {
+            currentView = .WAITING
+        }
         mp.invite(room: room)
     }
     
@@ -167,7 +173,9 @@ class AppState {
                     }
 
                     // IMPORTANT: transition joiner into game
-                    self.currentView = .GAME
+                    withAnimation {
+                        self.currentView = .GAME
+                    }
 
                 case .assignRoles:
                     let hostIsGyro = (msg.a ?? 0) == 1
@@ -191,20 +199,21 @@ class AppState {
                         vx: CGFloat(msg.c ?? 0),
                         vy: CGFloat(msg.d ?? 0)
                     )
-                case .levelSeed:
-                    // a = seed
-                    let seed = Int32(msg.a ?? 0)
-                    self.gameScene.startLevelAsJoiner(seed: seed)
                 case .time:
                     let time = CGFloat(msg.a ?? 0)
                     self.elapsedTime = time
                 case .finished:
                     self.gameScene.destructLevel()
+                    let finishTime = CGFloat(msg.a ?? 0)
+                    self.elapsedTime = finishTime
+                    self.finishGame()
+                case .cancelMultipeer:
+                    self.cancelMultipeerAndReturnToMenu()
+                case .restartedGame:
                     withAnimation {
-                        self.currentView = .RESULT
+                        self.restartGame()
                     }
                 }
-
             }
         }
 
@@ -310,6 +319,7 @@ class AppState {
     
     func startTimer() {
         startTime = CFAbsoluteTimeGetCurrent()
+        elapsedTime = 0.0
         isTimerRunning = true
     }
     
@@ -320,12 +330,16 @@ class AppState {
     }
     
     func stopTimer() {
-        if isTimerRunning {
-            elapsedTime = CFAbsoluteTimeGetCurrent() - startTime
-            if elapsedTime > 0 && elapsedTime < bestTime {
-                bestTime = elapsedTime
-            }
-            isTimerRunning = false
+        isTimerRunning = false
+    }
+    
+    func updateBestTime() {
+        if elapsedTime > 0 && elapsedTime < bestTime {
+            bestTime = elapsedTime
+            print("Best time")
+        } else if bestTime == 0 {
+            bestTime = elapsedTime
+            print("First best time")
         }
     }
     
@@ -343,6 +357,14 @@ class AppState {
         formatter.unitsStyle = .positional
         
         return formatter.string(from: bestTime) ?? "00:00"
+    }
+    
+    func finishGame() {
+        stopTimer()
+        updateBestTime()
+        withAnimation {
+            self.currentView = .RESULT
+        }
     }
     
     func restartGame() {
@@ -371,6 +393,9 @@ class AppState {
     }
 
     func cancelMultipeerAndReturnToMenu() {
+        stopTimer()
+        elapsedTime = 0.0
+        
         // 1. Stop motion updates safely (gyro device)
         stopSensors()
 
@@ -392,6 +417,8 @@ class AppState {
         // 5. (Optional but recommended) reset scene-side MP state
         gameScene.isRemoteViewOnly = (role == .gyro)
         gameScene.tiltX = 0
+        
+        gameScene.destructLevel()
 
         // 6. Navigate back to main menu
         withAnimation {

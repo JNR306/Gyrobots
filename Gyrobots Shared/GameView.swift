@@ -42,6 +42,7 @@ struct GameOverlay: View {
         VStack {
             HStack {
                 Button {
+                    appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
                     appState.cancelMultipeerAndReturnToMenu()
                 } label: {
                     Text("EXIT")
