@@ -12,6 +12,7 @@ enum CurrentView {
     case ROOM_LIST
     case GAME
     case RESULT
+    case LEVEL_SELECTION
 }
 
 enum Role {

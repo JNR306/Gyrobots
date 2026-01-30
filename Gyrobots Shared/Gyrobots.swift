@@ -52,10 +52,17 @@ struct Gyrobots: App {
                             .id("GameView")
                             .zIndex(2.3)
                             .transition(.push(from: .bottom))
+                        
                     case .RESULT:
                         ResultView()
                             .id("ResultView")
                             .zIndex(2.2)
+                            .transition(.push(from: .bottom))
+                        
+                    case .LEVEL_SELECTION:
+                        LevelSelection()
+                            .id("LevelSelection")
+                            .zIndex(2.1)
                             .transition(.push(from: .bottom))
                     }
                     

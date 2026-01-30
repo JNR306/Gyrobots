@@ -34,7 +34,9 @@ struct MainMenu: View {
                             .frame(height: 50)
                     }
                     Button {
-                        
+                        withAnimation {
+                            appState.currentView = .LEVEL_SELECTION
+                        }
                     } label: {
                         Image(.levelsButton)
                             .resizable()
