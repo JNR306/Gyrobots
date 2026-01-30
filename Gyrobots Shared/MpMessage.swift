@@ -12,6 +12,8 @@ enum MPMessageType: String, Codable {
     case tilt
     case jump
     case playerState
+    case time
+    case finished
 }
 
 struct MPMessage: Codable {

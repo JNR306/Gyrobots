@@ -7,6 +7,7 @@
 
 import SpriteKit
 import GameplayKit
+import SwiftUI
 
 struct PhysicsCategory {
     static let none: UInt32 = 0      // 0
@@ -180,6 +181,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         addChild(player)
     }
+    
+    func destructLevel() {
+        player.removeFromParent()
+        gameCamera.removeFromParent()
+        terrainNode.removeFromParent()
+    }
 
     // MARK: - Procedural Terrain (Perlin Noise)
     
@@ -270,8 +277,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // Check if the combination is Player + FinishLine
         if contactMask == (PhysicsCategory.player | PhysicsCategory.finishLine) {
-            AppState.shared.stopTimer()
-            AppState.shared.currentView = .RESULT
+            if !isRemoteViewOnly {
+                AppState.shared.stopTimer()
+                mp?.sendImportant(MPMessage(type: .finished))
+                destructLevel()
+                withAnimation {
+                    AppState.shared.currentView = .RESULT
+                }
+            }
         }
     }
 
@@ -333,6 +346,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 c: Double(body.velocity.dx),
                 d: Double(body.velocity.dy)
             ))
+            
+            mp?.send(MPMessage(type: .time, a: AppState.shared.elapsedTime))
         }
     }
 
