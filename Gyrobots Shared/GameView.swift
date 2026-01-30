@@ -45,8 +45,9 @@ struct GameOverlay: View {
                     appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
                     appState.cancelMultipeerAndReturnToMenu()
                 } label: {
-                    Text("EXIT")
-                        .frame(width: 100, height: 100)
+                    Image(.closeButton)
+                        .resizable()
+                        .frame(width: 40, height: 40)
                 }
                 Spacer()
                 Text("\(appState.formattedElapsedTime)")
@@ -66,13 +67,13 @@ struct GameOverlay: View {
                     Button {
                         appState.handleJumpAction()
                     } label: {
-                        Text("JUMP")
-                            .foregroundStyle(.white)
+                        Image(.jumpButton)
+                            .resizable()
                             .frame(width: 100, height: 100)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .frame(width: 100, height: 100)
-                    //.border(.red, width: 10)
+                    .padding()
                 }
             }
         }

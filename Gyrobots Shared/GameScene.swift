@@ -256,9 +256,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func destructLevel() {
-        player.removeFromParent()
-        gameCamera.removeFromParent()
-        terrainNode.removeFromParent()
+        player?.removeFromParent()
+        gameCamera?.removeFromParent()
+        terrainNode?.removeFromParent()
     }
 
     // MARK: - Procedural Terrain (Perlin Noise)
