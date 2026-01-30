@@ -56,6 +56,7 @@ struct MainMenu: View {
                                     .foregroundStyle(.white)
                             Text("Best time")
                                 .font(.custom("AvenirNext-Regular", size: 15, relativeTo: .largeTitle))
+                                .foregroundStyle(.white)
                         }
                     }
                     }
