@@ -19,10 +19,17 @@ struct GameView: View {
                 .ignoresSafeArea()
         }
         .onAppear {
+            appState.startGameIfNeeded()
             appState.startSensors()
         }
         .onDisappear {
             appState.stopSensors()
+        }
+        .overlay(alignment: .topLeading) { //TEMPORARY - ONLY FOR DEVELOPMENT
+            Text("isHost: \(appState.isHost ? "YES" : "NO")  role: \(appState.role == .gyro ? "GYRO" : "JUMP")")
+                .padding(8)
+                .background(.black.opacity(0.6))
+                .foregroundStyle(.white)
         }
     }
 }

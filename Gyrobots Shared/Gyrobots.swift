@@ -25,11 +25,31 @@ struct Gyrobots: App {
                   //.border(.blue, width: 7)
                 Group {
                     switch appState.currentView {
+
                     case .MAIN_MENU:
                         MainMenu()
                             .id("MainMenu")
                             .zIndex(2.0)
                             .transition(.push(from: .bottom))
+
+                    case .PLAY_MENU:
+                        PlayMenu()
+                            .id("PlayMenu")
+                            .zIndex(2.1)
+                            .transition(.push(from: .bottom))
+
+                    case .WAITING:
+                        Waiting()
+                            .id("Waiting")
+                            .zIndex(2.2)
+                            .transition(.push(from: .bottom))
+
+                    case .ROOM_LIST:
+                        RoomList()
+                            .id("RoomList")
+                            .zIndex(2.2)
+                            .transition(.push(from: .bottom))
+
                     case .GAME:
                         GameView()
                             .ignoresSafeArea()
@@ -37,9 +57,10 @@ struct Gyrobots: App {
                                 GameOverlay()
                             }
                             .id("GameView")
-                            .zIndex(2.1)
+                            .zIndex(2.3)
                             .transition(.push(from: .bottom))
                     }
+
                 }
             }
             .environment(appState)
