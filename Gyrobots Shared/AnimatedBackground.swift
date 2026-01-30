@@ -9,31 +9,29 @@ import SwiftUI
 
 struct AnimatedBackground: View {
     
-    @State private var isAnimatingBackground = false
+    let duration: TimeInterval = 10
 
     var body: some View {
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                Image(.BG)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-                Image(.BG)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .clipped()
-            }
-            .offset(y: -geo.size.height)
-            .offset(y: isAnimatingBackground ? geo.size.height : 0)
-            .animation(.linear(duration: 10).repeatForever(autoreverses: false), value: isAnimatingBackground)
-            .onAppear {
-                withAnimation {
-                    isAnimatingBackground = true
+            TimelineView(.periodic(from: .now, by: 1/60)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                let progress = (t.truncatingRemainder(dividingBy: duration)) / duration //0.0 to 1.0
+                
+                VStack(spacing: 0) {
+                    Image(.BG)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                    Image(.BG)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
                 }
+                .offset(y: -geo.size.height + (progress * geo.size.height))
             }
         }
+        .ignoresSafeArea()
+        .drawingGroup()
     }
 }
 
