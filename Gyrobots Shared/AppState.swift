@@ -47,15 +47,14 @@ class AppState {
     var role: Role = .gyro
     
     //let locationHelper = LocationHelper()
-    
-    var currentTime: Double? = nil
-    var bestTime: Double? = nil
-    
+        
     var currentLevel: Level? = .DESERT
     
     var startTime: Double = 0
     var elapsedTime: Double = 0
     var isTimerRunning = false
+    
+    var bestTime: Double = 0
     
     init() {
         // IMPORTANT: use the .sks-backed scene if you have one
@@ -323,17 +322,29 @@ class AppState {
     func stopTimer() {
         if isTimerRunning {
             elapsedTime = CFAbsoluteTimeGetCurrent() - startTime
+            if elapsedTime > 0 && elapsedTime < bestTime {
+                bestTime = elapsedTime
+            }
             isTimerRunning = false
         }
     }
     
-    var formattedTime: String {
+    var formattedElapsedTime: String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .positional
         
         return formatter.string(from: elapsedTime) ?? "00:00"
     }
+    
+    var formattedBestTime: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        
+        return formatter.string(from: bestTime) ?? "00:00"
+    }
+    
     func cancelMultipeerAndReturnToMenu() {
         // 1. Stop motion updates safely (gyro device)
         stopSensors()
