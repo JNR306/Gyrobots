@@ -224,8 +224,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func setupPlayer() {
+        // Remove an existing player if we’re restarting / re-entering
+        if let existing = player {
+            existing.removeFromParent()
+        }
+        childNode(withName: "player")?.removeFromParent()
         let rect = CGRect(x: -playerSize.width / 2, y: 0, width: playerSize.width, height: playerSize.height)
         player = SKShapeNode(rect: rect)
+        player.name = "player"
         player.fillColor = SKColor.red
         player.strokeColor = SKColor.clear
         
