@@ -14,13 +14,8 @@ struct Gyrobots: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                Image(.BG)
-                  .resizable()
-                  .aspectRatio(contentMode: .fill)
-                  .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-                  .clipped()
-                  .ignoresSafeArea()
-                  //.border(.blue, width: 7)
+                AnimatedBackground()
+                    .ignoresSafeArea()
                 Group {
                     switch AppState.shared.currentView {
                     case .MAIN_MENU:
@@ -28,25 +23,25 @@ struct Gyrobots: App {
                             .id("MainMenu")
                             .zIndex(2.0)
                             .transition(.push(from: .bottom))
-
+                        
                     case .PLAY_MENU:
                         PlayMenu()
                             .id("PlayMenu")
                             .zIndex(2.1)
                             .transition(.push(from: .bottom))
-
+                        
                     case .WAITING:
                         Waiting()
                             .id("Waiting")
                             .zIndex(2.2)
                             .transition(.push(from: .bottom))
-
+                        
                     case .ROOM_LIST:
                         RoomList()
                             .id("RoomList")
                             .zIndex(2.2)
                             .transition(.push(from: .bottom))
-
+                        
                     case .GAME:
                         GameView()
                             .ignoresSafeArea()
@@ -62,7 +57,7 @@ struct Gyrobots: App {
                             .zIndex(2.2)
                             .transition(.push(from: .bottom))
                     }
-
+                    
                 }
             }
             .environment(AppState.shared)
