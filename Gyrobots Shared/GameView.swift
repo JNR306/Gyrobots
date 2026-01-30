@@ -49,7 +49,7 @@ struct GameOverlay: View {
                         .frame(width: 100, height: 100)
                 }
                 Spacer()
-                Text("\(appState.formattedTime)")
+                Text("\(appState.formattedElapsedTime)")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
                     .monospacedDigit()
                     .foregroundStyle(.terrain)

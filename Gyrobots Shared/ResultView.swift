@@ -13,7 +13,7 @@ struct ResultView: View {
     
     var body: some View {
         VStack {
-            Text("Your time: \(appState.formattedTime)")
+            Text("Your time: \(appState.formattedElapsedTime)")
             Button {
                 withAnimation {
                     appState.currentView = .GAME
