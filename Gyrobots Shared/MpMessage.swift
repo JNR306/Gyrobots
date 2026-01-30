@@ -8,12 +8,14 @@
 import Foundation
 
 enum MPMessageType: String, Codable {
+    case requestLevel
     case levelSeed
     case tilt
     case jump
     case playerState
     case time
     case finished
+    case assignRoles
 }
 
 struct MPMessage: Codable {
