@@ -25,8 +25,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - Settings
     let moveSpeed: CGFloat = 300.0
-    let jumpForce: CGFloat = 800.0
-    let smallJumpForce: CGFloat = 450.0
+    let jumpForce: CGFloat = 1000.0
+    let smallJumpForce: CGFloat = 1000.0
     let playerSize = CGSize(width: 50, height: 100)
 
     // MARK: - Multiplayer
@@ -74,11 +74,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
 
         setupCamera()
-
-        // 🔹 IMPORTANT:
-        // Do not start generating the world here.
-        // Host will call startLevelAsHost(seed:)
-        // Joiner will call startLevelAsJoiner(seed:)
     }
 
     // MARK: - Level start (seeded)
@@ -126,6 +121,77 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             UInt8(truncatingIfNeeded: (seed >> 24) & 0xFF)
         ]))
     }
+    
+    // MARK: - Mock/Test Level -- REMOVE LATER
+
+    func startMockLevelAsHost() {
+        isRemoteViewOnly = false
+        buildMockLevel()
+        setupPlayer()
+    }
+
+    func startMockLevelAsJoiner() {
+        isRemoteViewOnly = true
+        buildMockLevel()
+        setupPlayer()
+        player.physicsBody?.isDynamic = false
+    }
+
+    private func buildMockLevel() {
+        // wipe previous run
+        removeAllChildren()
+        noise = nil
+        rng = nil
+        lastStateSendTime = 0
+
+        backgroundColor = .darkGray
+        physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
+
+        setupCamera()
+
+        // Ground (flat)
+        let groundY: CGFloat = -200
+        let groundWidth: CGFloat = 4000
+        let groundHeight: CGFloat = 80
+
+        let ground = SKShapeNode(rectOf: CGSize(width: groundWidth, height: groundHeight))
+        ground.fillColor = .black
+        ground.strokeColor = .lightGray
+        ground.lineWidth = 2
+        ground.position = CGPoint(x: groundWidth * 0.5 - 400, y: groundY)
+        ground.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: groundWidth, height: groundHeight))
+        ground.physicsBody?.isDynamic = false
+        ground.physicsBody?.friction = 0.8
+        addChild(ground)
+
+        // A few platforms to test jumping
+        func addPlatform(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat = 30) {
+            let p = SKShapeNode(rectOf: CGSize(width: w, height: h), cornerRadius: 6)
+            p.fillColor = .gray
+            p.strokeColor = .white
+            p.lineWidth = 1
+            p.position = CGPoint(x: x, y: y)
+            p.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: w, height: h))
+            p.physicsBody?.isDynamic = false
+            p.physicsBody?.friction = 0.8
+            addChild(p)
+        }
+
+        addPlatform(x: 200,  y: groundY + 120, w: 220)
+        addPlatform(x: 520,  y: groundY + 200, w: 220)
+        addPlatform(x: 860,  y: groundY + 280, w: 260)
+        addPlatform(x: 1250, y: groundY + 180, w: 300)
+
+        // A “wall” to test bumping / stopping
+        let wall = SKShapeNode(rectOf: CGSize(width: 60, height: 300), cornerRadius: 8)
+        wall.fillColor = .orange
+        wall.strokeColor = .clear
+        wall.position = CGPoint(x: 1650, y: groundY + 150)
+        wall.physicsBody = SKPhysicsBody(rectangleOf: CGSize(width: 60, height: 300))
+        wall.physicsBody?.isDynamic = false
+        addChild(wall)
+    }
+
 
     // MARK: - Multiplayer hooks
 
@@ -354,19 +420,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Actions
 
     func isGrounded() -> Bool {
-        guard player.physicsBody != nil else { return false }
+        guard let body = player.physicsBody else { return false }
 
-        let start = player.position
-        let end = CGPoint(x: start.x, y: start.y - 55)
+        // Use the physics body's actual frame
+        let frame = body.node!.frame
+        let footY = frame.minY
 
-        var hitGround = false
-        physicsWorld.enumerateBodies(alongRayStart: start, end: end) { body, _, _, stop in
-            if body != self.player.physicsBody {
-                hitGround = true
+        let start = CGPoint(x: player.position.x, y: footY + 5)
+        let end   = CGPoint(x: player.position.x, y: footY - 20)
+
+        var hit = false
+        physicsWorld.enumerateBodies(alongRayStart: start, end: end) { otherBody, _, _, stop in
+            if otherBody !== body {
+                hit = true
                 stop.pointee = true
             }
         }
-        return hitGround
+        return hit
     }
 
     func jump(with force: CGFloat) {

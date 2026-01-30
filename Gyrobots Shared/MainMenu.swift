@@ -22,7 +22,7 @@ struct MainMenu: View {
                 .frame(height: 30)
             Button {
                 withAnimation {
-                    appState.currentView = .GAME
+                    appState.currentView = .PLAY_MENU
                 }
             } label: {
                 Image(.playButton)

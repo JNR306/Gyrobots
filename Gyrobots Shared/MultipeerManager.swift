@@ -8,6 +8,14 @@
 
 import Foundation
 import MultipeerConnectivity
+import UIKit
+
+
+struct Room: Identifiable, Hashable {
+    let id: MCPeerID
+    let name: String
+    let info: [String:String]
+}
 
 final class MultipeerManager: NSObject {
 
@@ -22,6 +30,10 @@ final class MultipeerManager: NSObject {
     // Callbacks
     var onReceivedMessage: ((MPMessage) -> Void)?
     var onConnectedPeersChanged: (([MCPeerID]) -> Void)?
+    
+    //Game room properties
+    var onFoundRooms: (([Room]) -> Void)?
+    private var rooms: [MCPeerID: Room] = [:]
 
     override init() {
         super.init()
@@ -29,12 +41,22 @@ final class MultipeerManager: NSObject {
         session.delegate = self
     }
 
-    func startHosting() {
-        advertiser = MCNearbyServiceAdvertiser(peer: myPeerID,
-                                              discoveryInfo: nil,
-                                              serviceType: Self.serviceType)
+    func startHosting(roomName: String) {
+        advertiser = MCNearbyServiceAdvertiser(
+            peer: myPeerID,
+            discoveryInfo: ["roomName": roomName],
+            serviceType: Self.serviceType
+        )
         advertiser?.delegate = self
         advertiser?.startAdvertisingPeer()
+    }
+    
+    func startBrowsingRooms() {
+        rooms.removeAll()
+        onFoundRooms?([])
+        browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: Self.serviceType)
+        browser?.delegate = self
+        browser?.startBrowsingForPeers()
     }
 
     func startJoining() {
@@ -51,11 +73,11 @@ final class MultipeerManager: NSObject {
         session.disconnect()
     }
 
-    func send(_ message: MPMessage) {
+    func send(_ message: MPMessage, mode: MCSessionSendDataMode = .reliable) {
         guard !session.connectedPeers.isEmpty else { return }
         do {
             let data = try JSONEncoder().encode(message)
-            try session.send(data, toPeers: session.connectedPeers, with: .unreliable)
+            try session.send(data, toPeers: session.connectedPeers, with: mode)
         } catch {
             print("MP send error:", error)
         }
@@ -108,8 +130,19 @@ extension MultipeerManager: MCNearbyServiceAdvertiserDelegate, MCNearbyServiceBr
 
     func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID,
                  withDiscoveryInfo info: [String : String]?) {
-        browser.invitePeer(peerID, to: session, withContext: nil, timeout: 10)
+        let roomName = info?["roomName"] ?? peerID.displayName
+        let room = Room(id: peerID, name: roomName, info: info ?? [:])
+        rooms[peerID] = room
+        onFoundRooms?(Array(rooms.values))
     }
 
-    func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {}
+    func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
+        rooms.removeValue(forKey: peerID)
+        onFoundRooms?(Array(rooms.values))
+    }
+    
+    func invite(room: Room) {
+        browser?.invitePeer(room.id, to: session, withContext: nil, timeout: 10)
+    }
+
 }
