@@ -20,6 +20,7 @@ struct GameView: View {
         }
         .onAppear {
             appState.startSensors()
+            appState.startGameIfNeeded()
             appState.startTimer()
         }
         .onDisappear {

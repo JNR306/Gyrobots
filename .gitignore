@@ -1,0 +1,58 @@
+# =========================
+# Xcode
+# =========================
+
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+
+# User-specific Xcode data
+xcuserdata/
+*.xcuserdatad/
+
+# Workspace user data
+*.xcworkspace/xcuserdata/
+
+# Project workspace user data
+*.xcodeproj/xcuserdata/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/Build/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# =========================
+# Signing / local configs
+# =========================
+
+Config/Local.xcconfig
+*.local.xcconfig
+
+*.mobileprovision
+*.p12
+
+# =========================
+# macOS
+# =========================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*

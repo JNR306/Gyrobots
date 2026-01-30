@@ -5,10 +5,8 @@
 //  Created by Jan-Niklas Röhlig on 18.12.25.
 //
 
-import UIKit
 import SpriteKit
 import GameplayKit
-import CoreMotion
 
 struct PhysicsCategory {
     static let none: UInt32 = 0      // 0
@@ -17,39 +15,51 @@ struct PhysicsCategory {
     static let terrain: UInt32 = 0x4    // 4
 }
 
-class GameScene: SKScene, SKPhysicsContactDelegate {
+final class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // MARK: - Nodes
     var player: SKShapeNode!
     var gameCamera: SKCameraNode!
     var terrainNode: SKShapeNode!
-    
+
     // MARK: - Settings
     let moveSpeed: CGFloat = 300.0
     let jumpForce: CGFloat = 800.0
-    let playerSize = CGSize(width: 50, height: 100)
     let smallJumpForce: CGFloat = 450.0
-    
-    // MARK: - Noise Generator
-    let noise: GKNoise = {
-        let source = GKPerlinNoiseSource(frequency: 0.002, octaveCount: 3, persistence: 0.5, lacunarity: 2.0, seed: Int32(Int.random(in: 0...123123)))
-        return GKNoise(source)
-    }()
-    
-    // MARK: - State Flags
+    let playerSize = CGSize(width: 50, height: 100)
+
+    // MARK: - Multiplayer
+    weak var mp: MultipeerManager?
+
+    /// If true: this device does NOT simulate physics; it only mirrors host state.
+    var isRemoteViewOnly: Bool = false
+
+    // MARK: - Input (fed by host locally or from peer)
+    /// Horizontal input in [-1, 1]
+    var tiltX: CGFloat = 0
+    let tiltDeadzone: CGFloat = 0.08
+
+    // MARK: - Seeded generation
+    private var noise: GKNoise?
+    private var rng: GKRandomSource?
+
+    // MARK: - State send throttling (host -> joiner)
+    private var lastStateSendTime: TimeInterval = 0
+    private let stateSendInterval: TimeInterval = 1.0 / 30.0 // 30 Hz
+
+    // MARK: - Local flags (optional / future use)
     var isMovingLeft = false
     var isMovingRight = false
     var isCrouching = false
-    
+
+    // MARK: - Scene loading
     class func newGameScene() -> GameScene {
         guard let scene = SKScene(fileNamed: "GameScene") as? GameScene else { abort() }
         scene.scaleMode = .resizeFill
         return scene
     }
-    
+
     override func didMove(to view: SKView) {
-        self.physicsWorld.contactDelegate = self
-        
         // Setting background color
         switch AppState.shared.currentLevel {
         case .DESERT:
@@ -60,58 +70,105 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             self.backgroundColor = .white
         }
         
-        
-        self.physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
-        
+        physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
+
         setupCamera()
+
+        // 🔹 IMPORTANT:
+        // Do not start generating the world here.
+        // Host will call startLevelAsHost(seed:)
+        // Joiner will call startLevelAsJoiner(seed:)
+    }
+
+    // MARK: - Level start (seeded)
+
+    /// Host calls this once it decides the seed.
+    func startLevelAsHost(seed: Int32) {
+        isRemoteViewOnly = false
+        configureLevel(seed: seed)
         generateTerrain()
         setupPlayer()
+        
+        print("Started level as host")
+
+        self.physicsWorld.contactDelegate = self
     }
-    
-    // MARK: - Multiplayer
-    weak var mp: MultipeerManager?
-    var roleIsJumpSender = false
-    
-    // MARK: - Gyro Input
-    /// Horizontal input from tilt in range [-1, 1]
-    var tiltX: CGFloat = 0
-    
-    /// Deadzone to prevent drift when device is almost flat
-    let tiltDeadzone: CGFloat = 0.08
-    
-    // MARK: - Multipeer Stuff
+
+    /// Joiner calls this after receiving the host’s seed.
+    func startLevelAsJoiner(seed: Int32) {
+        isRemoteViewOnly = true
+        configureLevel(seed: seed)
+        generateTerrain()
+        setupPlayer()
+        
+        print("Started level as joiner")
+
+        // Joiner should not simulate
+        player.physicsBody?.isDynamic = false
+    }
+
+    private func configureLevel(seed: Int32) {
+        let source = GKPerlinNoiseSource(
+            frequency: 0.002,
+            octaveCount: 3,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            seed: seed
+        )
+        noise = GKNoise(source)
+
+        // Deterministic RNG for obstacles
+        rng = GKARC4RandomSource(seed: Data([
+            UInt8(truncatingIfNeeded: seed & 0xFF),
+            UInt8(truncatingIfNeeded: (seed >> 8) & 0xFF),
+            UInt8(truncatingIfNeeded: (seed >> 16) & 0xFF),
+            UInt8(truncatingIfNeeded: (seed >> 24) & 0xFF)
+        ]))
+    }
+
+    // MARK: - Multiplayer hooks
+
+    /// Tilt updates can come from the gyro device.
     func applyRemoteTilt(_ x: CGFloat) {
         tiltX = x
     }
-    
-    func applyRemoteJump(force: CGFloat?) {
-        if let f = force {
-            jump(with: f)
-        } else {
-            jump()
-        }
+
+    /// Jump request (applied only on host).
+    func applyRemoteJump(force: CGFloat) {
+        guard !isRemoteViewOnly else { return }
+        jump(with: force)
     }
-    
-    
+
+    /// Joiner mirrors the host player state.
+    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat) {
+        guard isRemoteViewOnly else { return }
+        guard player != nil else { return } // joiner might receive state before scene started
+
+        player.position = CGPoint(x: x, y: y)
+        player.physicsBody?.velocity = CGVector(dx: vx, dy: vy)
+    }
+
     // MARK: - Setup
-    
-    func setupCamera() {
+
+    private func setupCamera() {
         gameCamera = SKCameraNode()
         addChild(gameCamera)
         camera = gameCamera
     }
-    
+
     func setupPlayer() {
-        let rect = CGRect(x: -playerSize.width/2, y: 0, width: playerSize.width, height: playerSize.height)
+        let rect = CGRect(x: -playerSize.width / 2, y: 0, width: playerSize.width, height: playerSize.height)
         player = SKShapeNode(rect: rect)
         player.fillColor = SKColor.red
         player.strokeColor = SKColor.clear
         
         let startY = 100
         player.position = CGPoint(x: 0, y: startY)
-        
-        // Physics
-        player.physicsBody = SKPhysicsBody(rectangleOf: playerSize, center: CGPoint(x: 0, y: playerSize.height/2))
+
+        player.physicsBody = SKPhysicsBody(
+            rectangleOf: playerSize,
+            center: CGPoint(x: 0, y: playerSize.height / 2)
+        )
         player.physicsBody?.isDynamic = true
         player.physicsBody?.allowsRotation = false
         player.physicsBody?.friction = 0.2
@@ -123,10 +180,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         
         addChild(player)
     }
-    
+
     // MARK: - Procedural Terrain (Perlin Noise)
     
     func getNoiseValue(at x: CGFloat) -> CGFloat {
+        guard let noise else { return 0 } // safety until configured
         let position = vector_float2(Float(x), 0)
         let noiseValue = noise.value(atPosition: position)
         return CGFloat(noiseValue)
@@ -166,8 +224,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()
-        
-        //terrain node
+
         terrainNode = SKShapeNode(path: path)
         terrainNode.fillColor = SKColor(named: "Terrain") ?? .white
         terrainNode.strokeColor = .clear
@@ -217,103 +274,104 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             AppState.shared.currentView = .RESULT
         }
     }
-    
+
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
-        let isHigh = Bool.random()
+        guard let rng else { return }
+
+        let isHigh = (rng.nextInt(upperBound: 2) == 0)
         let size = CGSize(width: 60, height: 60)
-        
+
         let obstacle = SKShapeNode(rectOf: size)
-        obstacle.fillColor = SKColor.orange
+        obstacle.fillColor = .orange
         obstacle.lineWidth = 0
-        
-        let yOffset = isHigh ? 130.0 : 30.0 //have high for crouching under and low for jumping over
+
+        let yOffset = isHigh ? 130.0 : 30.0
         obstacle.position = CGPoint(x: x, y: groundY + yOffset)
-        
+
         obstacle.physicsBody = SKPhysicsBody(rectangleOf: size)
         obstacle.physicsBody?.isDynamic = false
-        
+
         addChild(obstacle)
     }
-    
+
     // MARK: - Game Loop
-    
+
     override func update(_ currentTime: TimeInterval) {
-        // --- horizontal movement (gyro first, touches as fallback) ---
-        var xInput = tiltX
+        guard player != nil else { return }
 
-        // apply deadzone
-        if abs(xInput) < tiltDeadzone { xInput = 0 }
-
-        if xInput != 0 {
+        // Host simulates movement
+        if !isRemoteViewOnly {
+            var xInput = tiltX
+            if abs(xInput) < tiltDeadzone { xInput = 0 }
             player.physicsBody?.velocity.dx = xInput * moveSpeed
-        } else {
-            // fallback to existing touch controls (optional)
-            if isMovingLeft {
-                player.physicsBody?.velocity.dx = -moveSpeed
-            } else if isMovingRight {
-                player.physicsBody?.velocity.dx = moveSpeed
-            } else {
-                // optional: stop sliding forever when no input
-                player.physicsBody?.velocity.dx = 0
-            }
         }
 
-        // cam
+        // Camera follows on both devices
         if let cam = gameCamera, let p = player {
             let targetX = p.position.x
             let targetY = p.position.y + 100
+
             let currentY = cam.position.y
             let newY = currentY + (targetY - currentY) * 0.1
+
             cam.position = CGPoint(x: targetX, y: newY)
         }
         
         AppState.shared.updateTimer()
+
+        // Host broadcasts authoritative player state at 30 Hz
+        if !isRemoteViewOnly,
+           let body = player.physicsBody,
+           currentTime - lastStateSendTime >= stateSendInterval {
+
+            lastStateSendTime = currentTime
+
+            mp?.send(MPMessage(
+                type: .playerState,
+                a: Double(player.position.x),
+                b: Double(player.position.y),
+                c: Double(body.velocity.dx),
+                d: Double(body.velocity.dy)
+            ))
+        }
     }
 
-    
     // MARK: - Actions
-    
+
     func isGrounded() -> Bool {
         guard player.physicsBody != nil else { return false }
-        
+
         let start = player.position
-        let end = CGPoint(x: start.x, y: start.y - 55) //as player is 50 tall
-        
+        let end = CGPoint(x: start.x, y: start.y - 55)
+
         var hitGround = false
-        
-        self.physicsWorld.enumerateBodies(alongRayStart: start, end: end) { (body, point, normal, stop) in
+        physicsWorld.enumerateBodies(alongRayStart: start, end: end) { body, _, _, stop in
             if body != self.player.physicsBody {
                 hitGround = true
                 stop.pointee = true
             }
         }
-        
         return hitGround
     }
-    
+
     func jump(with force: CGFloat) {
+        guard !isRemoteViewOnly else { return }
         if isGrounded() {
             player.physicsBody?.velocity.dy = 0
             player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: force))
         }
     }
 
-    func jump() {
-        jump(with: jumpForce)
-    }
+    func jump() { jump(with: jumpForce) }
+    func smallJump() { jump(with: smallJumpForce) }
 
-    func smallJump() {
-        jump(with: smallJumpForce)
-    }
-
-    
     func startCrouch() {
         if !isCrouching {
             player.yScale = 0.5
             isCrouching = true
         }
     }
-    
+
     func stopCrouch() {
         if isCrouching {
             player.yScale = 1.0
@@ -321,52 +379,3 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 }
-
-// MARK: - Input Handling (iOS/tvOS)
-#if os(iOS) || os(tvOS)
-import UIKit
-extension GameScene {
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first else { return }
-        let loc = touch.location(in: self.camera!)
-        if roleIsJumpSender { return }
-        if loc.y > 50 {
-            jump()
-            if roleIsJumpSender {
-                mp?.send(MPMessage(type: .jump, value: nil))
-            }
-        }
-        else if loc.x < -80 { isMovingLeft = true }
-        else if loc.x > 80 { isMovingRight = true }
-        else { startCrouch() }
-    }
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        isMovingLeft = false; isMovingRight = false; stopCrouch()
-    }
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { touchesEnded(touches, with: event) }
-}
-#endif
-
-// MARK: - Input Handling (macOS)
-#if os(macOS)
-import Cocoa
-extension GameScene {
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 49: jump()
-        case 123: isMovingLeft = true
-        case 124: isMovingRight = true
-        case 125: startCrouch()
-        default: break
-        }
-    }
-    override func keyUp(with event: NSEvent) {
-        switch event.keyCode {
-        case 123: isMovingLeft = false
-        case 124: isMovingRight = false
-        case 125: stopCrouch()
-        default: break
-        }
-    }
-}
-#endif
