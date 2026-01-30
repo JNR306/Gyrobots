@@ -16,6 +16,8 @@ enum MPMessageType: String, Codable {
     case time
     case finished
     case assignRoles
+    case cancelMultipeer
+    case restartedGame
 }
 
 struct MPMessage: Codable {

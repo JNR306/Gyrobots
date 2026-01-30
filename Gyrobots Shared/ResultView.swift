@@ -15,9 +15,8 @@ struct ResultView: View {
         VStack {
             Text("Your time: \(appState.formattedElapsedTime)")
             Button {
-                withAnimation {
-                    appState.restartGame()
-                }
+                appState.mp.sendImportant(MPMessage(type: .restartedGame))
+                appState.restartGame()
             } label: {
                 Text("TRY AGAIN")
                     .frame(width: 100, height: 100)
