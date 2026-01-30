@@ -15,6 +15,7 @@ struct Gyrobots: App {
         WindowGroup {
             ZStack {
                 AnimatedBackground()
+                    .id("AnimatedBackground")
                     .ignoresSafeArea()
                 Group {
                     switch AppState.shared.currentView {
