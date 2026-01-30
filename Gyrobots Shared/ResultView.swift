@@ -16,7 +16,7 @@ struct ResultView: View {
             Text("Your time: \(appState.formattedElapsedTime)")
             Button {
                 withAnimation {
-                    appState.currentView = .GAME
+                    appState.restartGame()
                 }
             } label: {
                 Text("TRY AGAIN")
