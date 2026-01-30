@@ -39,6 +39,9 @@ struct Gyrobots: App {
                             .transition(.push(from: .bottom))
                     case .RESULT:
                         ResultView()
+                            .id("ResultView")
+                            .zIndex(2.2)
+                            .transition(.push(from: .bottom))
                     }
                 }
             }

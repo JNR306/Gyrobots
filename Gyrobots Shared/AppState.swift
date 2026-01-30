@@ -28,7 +28,7 @@ class AppState {
     let mp = MultipeerManager()
 
     // choose per device before connecting
-    var role: Role = .gyro
+    var role: Role = .jump
     
     //let locationHelper = LocationHelper()
     
@@ -90,7 +90,14 @@ class AppState {
                     // a = seed
                     let seed = Int32(msg.a ?? 0)
                     self.gameScene.startLevelAsJoiner(seed: seed)
-                    print("Started level as joiner x")
+                case .time:
+                    let time = CGFloat(msg.a ?? 0)
+                    self.elapsedTime = time
+                case .finished:
+                    self.gameScene.destructLevel()
+                    withAnimation {
+                        self.currentView = .RESULT
+                    }
                 }
             }
         }
@@ -106,15 +113,15 @@ class AppState {
     /// Call this when you enter GAME (host starts + broadcasts seed)
     func startGameIfNeeded() {
         guard currentView == .GAME else { return }
-        
-        print("Started level as host x")
 
         if role == .jump {
             let seed = Int32.random(in: Int32.min...Int32.max)
             gameScene.startLevelAsHost(seed: seed)
 
             // send seed in a
-            mp.send(MPMessage(type: .levelSeed, a: Double(seed)))
+            mp.sendImportant(MPMessage(type: .levelSeed, a: Double(seed)))
+            
+            self.startTimer()
         }
         // gyro device waits for .levelSeed then calls startLevelAsJoiner in handler
     }

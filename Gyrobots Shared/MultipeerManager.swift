@@ -60,6 +60,16 @@ final class MultipeerManager: NSObject {
             print("MP send error:", error)
         }
     }
+    
+    func sendImportant(_ message: MPMessage) {
+        guard !session.connectedPeers.isEmpty else { return }
+        do {
+            let data = try JSONEncoder().encode(message)
+            try session.send(data, toPeers: session.connectedPeers, with: .reliable)
+        } catch {
+            print("MP send error:", error)
+        }
+    }
 }
 
 // MARK: - MCSessionDelegate

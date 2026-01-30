@@ -21,7 +21,6 @@ struct GameView: View {
         .onAppear {
             appState.startSensors()
             appState.startGameIfNeeded()
-            appState.startTimer()
         }
         .onDisappear {
             appState.stopSensors()
@@ -37,11 +36,13 @@ struct GameOverlay: View {
         VStack {
             HStack {
                 Button {
+                    appState.gameScene.destructLevel()
                     withAnimation {
                         appState.currentView = .MAIN_MENU
                     }
                 } label: {
                     Text("EXIT")
+                        .frame(width: 100, height: 100)
                 }
                 Spacer()
                 Text("\(appState.formattedTime)")
@@ -63,6 +64,7 @@ struct GameOverlay: View {
                     } label: {
                         Text("JUMP")
                             .foregroundStyle(.white)
+                            .frame(width: 100, height: 100)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .frame(width: 100, height: 100)
