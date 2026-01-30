@@ -19,7 +19,6 @@ struct GameView: View {
                 .ignoresSafeArea()
         }
         .onAppear {
-            appState.startGameIfNeeded()
             appState.startSensors()
             appState.startGameIfNeeded()
         }

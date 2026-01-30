@@ -345,6 +345,31 @@ class AppState {
         return formatter.string(from: bestTime) ?? "00:00"
     }
     
+    func restartGame() {
+        // Reset run-specific flags
+        hostStartedLevel = false
+        hostSeed = nil
+
+        // Reset timer
+        elapsedTime = 0
+        isTimerRunning = false
+        startTime = 0
+
+        // Recreate the scene
+        let newScene = GameScene.newGameScene()
+        newScene.scaleMode = .resizeFill
+        newScene.mp = mp
+        self.gameScene = newScene
+
+        // Re-apply role flags
+        setupGameRoleFlags()
+
+        // Go back into game
+        withAnimation {
+            currentView = .GAME
+        }
+    }
+
     func cancelMultipeerAndReturnToMenu() {
         // 1. Stop motion updates safely (gyro device)
         stopSensors()
