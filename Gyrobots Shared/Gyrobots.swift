@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    static var orientationLock = UIInterfaceOrientationMask.all
+    static var orientationLock = UIDevice.current.userInterfaceIdiom == .pad ? UIInterfaceOrientationMask.all : UIInterfaceOrientationMask.landscape
 
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         return AppDelegate.orientationLock
@@ -41,7 +41,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
     static func unlockOrientation() {
         print("unlock")
-        AppDelegate.orientationLock = .all
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            AppDelegate.orientationLock = .all
+        } else {
+            AppDelegate.orientationLock = .landscape
+        }
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
             windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .all))

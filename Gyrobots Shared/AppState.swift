@@ -47,7 +47,7 @@ class AppState {
     var useMockLevel: Bool = false
 
     // choose per device before connecting
-    var role: Role = .jump
+    var role: Role = .gyro
     
     //let locationHelper = LocationHelper()
         
@@ -204,8 +204,16 @@ class AppState {
                     self.gameScene.applyRemoteTilt(x)
 
                 case .jump:
-                    let force = CGFloat(msg.a ?? Double(self.gameScene.smallJumpForce))
-                    self.gameScene.applyRemoteJump(force: force)
+                    //let force = CGFloat(msg.a ?? Double(self.gameScene.smallJumpForce))
+                    //self.gameScene.applyRemoteJump(force: force)
+                    if self.isHost {
+                        let successfull = self.gameScene.jump()
+                        if successfull {
+                            self.mp.send(MPMessage(type: .jumpSuccessfull))
+                        }
+                    } else {
+                        self.gameScene.forcedJump()
+                    }
 
                 case .playerState:
                     self.gameScene.applyRemotePlayerState(
@@ -233,7 +241,7 @@ class AppState {
                         self.currentView = .JOINING
                     }
                 case .jumpSuccessfull:
-                    print("JUMP")
+                    self.gameScene.forcedJump()
                     if self.role == .jump {
                         HapticManager.tap()
                     }
@@ -334,8 +342,12 @@ class AppState {
         let force = Double(gameScene.smallJumpForce)
 
         if isHost {
-            gameScene.smallJump()
+            let successfull = gameScene.jump()
+            if successfull {
+                mp.send(MPMessage(type: .jump, a: force), mode: .reliable)
+            }
         } else {
+            print("JUMPPPY")
             mp.send(MPMessage(type: .jump, a: force), mode: .reliable)
         }
     }

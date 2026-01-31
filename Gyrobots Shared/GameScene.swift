@@ -47,6 +47,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - State send throttling (host -> joiner)
     private var lastStateSendTime: TimeInterval = 0
     private let stateSendInterval: TimeInterval = 1.0 / 30.0 // 30 Hz
+    
+    // MARK: - Timer send throttling (host -> joiner)
+    private var lastTimerSendTime: TimeInterval = 0
+    private let timerSendInterval: TimeInterval = 1.0 / 5.0 // 5 Hz
 
     // MARK: - Local flags (optional / future use)
     var isMovingLeft = false
@@ -104,7 +108,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         print("Started level as joiner")
 
         // Joiner should not simulate
-        player.physicsBody?.isDynamic = false
+        // player.physicsBody?.isDynamic = false
     }
 
     private func configureLevel(seed: Int32) {
@@ -205,18 +209,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         tiltX = x
     }
 
-    /// Jump request (applied only on host).
-    func applyRemoteJump(force: CGFloat) {
-        guard !isRemoteViewOnly else { return }
-        jump(with: force)
-    }
-
     /// Joiner mirrors the host player state.
     func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat) {
         guard isRemoteViewOnly else { return }
         guard player != nil else { return } // joiner might receive state before scene started
 
-        player.position = CGPoint(x: x, y: y)
+        player.position = CGPoint(x: x, y: player.position.y)
         player.physicsBody?.velocity = CGVector(dx: vx, dy: vy)
     }
 
@@ -407,10 +405,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         AppState.shared.updateTimer()
 
         // Host broadcasts authoritative player state at 30 Hz
-        if !isRemoteViewOnly,
-           let body = player.physicsBody,
-           currentTime - lastStateSendTime >= stateSendInterval {
-
+        if !isRemoteViewOnly, let body = player.physicsBody, currentTime - lastStateSendTime >= stateSendInterval {
             lastStateSendTime = currentTime
 
             mp?.send(MPMessage(
@@ -420,6 +415,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 c: Double(body.velocity.dx),
                 d: Double(body.velocity.dy)
             ))
+        }
+        
+        // Host broadcasts timer state at 5 Hz
+        if !isRemoteViewOnly, currentTime - lastTimerSendTime >= timerSendInterval {
+            lastTimerSendTime = currentTime
             
             mp?.send(MPMessage(type: .time, a: AppState.shared.elapsedTime))
         }
@@ -446,21 +446,27 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         return hit
     }
+    
+    func forcedJump() {
+        guard isRemoteViewOnly else { return }
+        player.physicsBody?.velocity.dy = 0
+        player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: smallJumpForce))
+    }
 
-    func jump(with force: CGFloat) {
-        guard !isRemoteViewOnly else { return }
+    // return if jump was successfull
+    func jump() -> Bool {
+        guard !isRemoteViewOnly else { return false }
         if isGrounded() {
             if AppState.shared.role == .jump {
                 HapticManager.tap()
             }
-            mp?.send(MPMessage(type: .jumpSuccessfull))
             player.physicsBody?.velocity.dy = 0
-            player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: force))
+            player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: smallJumpForce))
+            return true
+        } else {
+            return false
         }
     }
-
-    func jump() { jump(with: jumpForce) }
-    func smallJump() { jump(with: smallJumpForce) }
 
     func startCrouch() {
         if !isCrouching {
