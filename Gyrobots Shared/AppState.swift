@@ -136,7 +136,9 @@ class AppState {
                     self.assignRandomRolesOnce()
 
                     // Move both devices into the game view
-                    self.currentView = .GAME
+                    withAnimation {
+                        self.currentView = .GAME
+                    }
                 }
             }
         }
@@ -183,7 +185,7 @@ class AppState {
                     if let level = receivedLevel {
                         self.currentLevel = level
                     }
-                    print(self.currentLevel)
+                    self.gameScene.setBackground()
 
                     // IMPORTANT: transition joiner into game
                     withAnimation {
@@ -371,7 +373,7 @@ class AppState {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .positional
-        var string = formatter.string(from: elapsedTime) ?? "00:00"
+        let string = formatter.string(from: elapsedTime) ?? "00:00"
         return string
     }
     
