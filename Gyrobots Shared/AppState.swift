@@ -16,6 +16,7 @@ enum CurrentView {
     case LEVEL_SELECTION
     case DISCONNECTED
     case ROLE_INTRO
+    case LOCATION
 }
 
 enum Role {
@@ -25,6 +26,7 @@ enum Role {
 enum Level: Int {
     case DESERT = 1
     case CITY = 2
+    case FOREST = 3
 }
 
 @Observable
@@ -52,9 +54,11 @@ class AppState {
     // choose per device before connecting
     var role: Role = .gyro
     
-    //let locationHelper = LocationHelper()
+    let locationHelper = LocationHelper()
         
     var currentLevel: Level? = .DESERT
+    var wasLevelSetByLocation = false
+    
     var startTime: Double = 0
     var elapsedTime: Double = 0
     var isTimerRunning = false
@@ -73,8 +77,16 @@ class AppState {
 
         setupMultipeer()
         
-        //locationHelper.start()
         setupGameRoleFlags()
+    }
+    
+    func locate() {
+        wasLevelSetByLocation = false
+        print("L1")
+        locationHelper.start()
+        withAnimation {
+            self.currentView = .LOCATION
+        }
     }
 
     private func setupGameRoleFlags() {
@@ -96,9 +108,9 @@ class AppState {
         isHost = true
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-               self.mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
-               withAnimation { self.currentView = .WAITING }
-           }
+           self.mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
+           withAnimation { self.currentView = .WAITING }
+       }
     }
 
     func browseRooms() {
@@ -106,9 +118,9 @@ class AppState {
         isHost = false
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                self.mp.startBrowsingRooms()
-                withAnimation { self.currentView = .ROOM_LIST }
-            }
+            self.mp.startBrowsingRooms()
+            withAnimation { self.currentView = .ROOM_LIST }
+        }
     }
     
     func join(room: Room) {

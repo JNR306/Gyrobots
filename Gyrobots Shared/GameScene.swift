@@ -79,6 +79,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             self.backgroundColor = SKColor(named: "BackgroundDesert") ?? .white
         case .CITY:
             self.backgroundColor = SKColor(named: "BackgroundCity") ?? .white
+        case .some(.FOREST):
+            self.backgroundColor = .white
         case .none:
             self.backgroundColor = .white
         }
@@ -313,8 +315,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         // Close shape
-        path.addLine(to: CGPoint(x: endX+200, y: isTerrainHigh.last ?? false ? 100 : 0))
-        path.addLine(to: CGPoint(x: endX+200, y: topFixedY))
+        path.addLine(to: CGPoint(x: endX+1000, y: isTerrainHigh.last ?? false ? 100 : 0))
+        path.addLine(to: CGPoint(x: endX+1000, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()

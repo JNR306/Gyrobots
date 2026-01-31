@@ -50,7 +50,7 @@ struct RoleIntro: View {
                 .padding(.horizontal, 30)
 
             Spacer()
-
+            /*
             Button {
                 HapticManager.tap()
                 withAnimation {
@@ -68,7 +68,7 @@ struct RoleIntro: View {
                 }
                 .padding()
             }
-
+            */
             Spacer()
         }
         .onAppear {
