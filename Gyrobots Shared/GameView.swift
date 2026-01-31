@@ -21,9 +21,11 @@ struct GameView: View {
         .onAppear {
             appState.startSensors()
             appState.startGameIfNeeded()
+            AppDelegate.lockOrientation()
         }
         .onDisappear {
             appState.stopSensors()
+            AppDelegate.unlockOrientation()
         }
         /*
         .overlay(alignment: .topLeading) { //TEMPORARY - ONLY FOR DEVELOPMENT
