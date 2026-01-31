@@ -21,7 +21,7 @@ final class MultipeerManager: NSObject {
 
     static let serviceType = "gyrobots-mp"
 
-    let myPeerID = MCPeerID(displayName: UIDevice.current.name)
+    private(set) var myPeerID = MCPeerID(displayName: UIDevice.current.name)
     private(set) var session: MCSession!
 
     private var advertiser: MCNearbyServiceAdvertiser?
@@ -30,6 +30,7 @@ final class MultipeerManager: NSObject {
     // Callbacks
     var onReceivedMessage: ((MPMessage) -> Void)?
     var onConnectedPeersChanged: (([MCPeerID]) -> Void)?
+    var onPeerDisconnected: (() -> Void)?
     
     //Game room properties
     var onFoundRooms: (([Room]) -> Void)?
@@ -37,8 +38,7 @@ final class MultipeerManager: NSObject {
 
     override init() {
         super.init()
-        session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
-        session.delegate = self
+        buildNewSession()
     }
 
     func startHosting(roomName: String) {
@@ -64,13 +64,44 @@ final class MultipeerManager: NSObject {
         browser?.delegate = self
         browser?.startBrowsingForPeers()
     }
+    
+    func resetSession() {
+        // Tear down old session cleanly
+        session?.delegate = nil
+        session?.disconnect()
+
+        // Create a fresh session
+        session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
+        session.delegate = self
+    }
 
     func stop() {
+        hardReset()
+    }
+
+    private func buildNewSession() {
+        session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
+        session.delegate = self
+    }
+
+    func hardReset() {
         advertiser?.stopAdvertisingPeer()
         browser?.stopBrowsingForPeers()
+
+        advertiser?.delegate = nil
+        browser?.delegate = nil
         advertiser = nil
         browser = nil
-        session.disconnect()
+
+        rooms.removeAll()
+        onFoundRooms?([])
+
+        session?.delegate = nil
+        session?.disconnect()
+
+        myPeerID = MCPeerID(displayName: UIDevice.current.name)
+
+        buildNewSession()
     }
 
     func send(_ message: MPMessage, mode: MCSessionSendDataMode = .reliable) {
@@ -99,6 +130,11 @@ extension MultipeerManager: MCSessionDelegate {
     func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         DispatchQueue.main.async {
             self.onConnectedPeersChanged?(session.connectedPeers)
+                
+            //Notify app layer when someone leaves
+            if state == .notConnected {
+                self.onPeerDisconnected?()
+            }
         }
     }
 
@@ -146,3 +182,4 @@ extension MultipeerManager: MCNearbyServiceAdvertiserDelegate, MCNearbyServiceBr
     }
 
 }
+
