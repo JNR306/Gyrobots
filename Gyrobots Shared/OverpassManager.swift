@@ -117,6 +117,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
                     }
                     else {
                         print("No matching criteria found in elements.")
+                        AppState.shared.currentLevel = Level(rawValue: Int.random(in: 1...3))
                     }
                     
                     AppState.shared.wasLevelSetByLocation = true
