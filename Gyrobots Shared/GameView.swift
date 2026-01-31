@@ -77,6 +77,16 @@ struct GameOverlay: View {
             Spacer()
             if appState.role == .jump {
                 HStack {
+                    Button {
+                        //collect
+                    } label: {
+                        Image(.collectButton)
+                            .resizable()
+                            .frame(width: 100, height: 100)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: 100, height: 100)
+                    .padding()
                     Spacer()
                     Button {
                         appState.handleJumpAction()
@@ -91,7 +101,6 @@ struct GameOverlay: View {
                 }
             }
         }
-        //.border(.yellow, width: 10)
     }
 }
 
@@ -104,6 +113,11 @@ struct TiltOverlay: View {
             VStack {
                 Spacer()
                 if appState.role == .gyro {
+                    Image(appState.tiltX > appState.gameScene.tiltDeadzone ? .rightMovementIndicator : appState.tiltX < -appState.gameScene.tiltDeadzone ? .leftMovementIndicator : .noMovementIndicator)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 50)
+                        .padding(.bottom)
                     Rectangle()
                         .foregroundStyle(.darkHighlight)
                         .frame(width: geo.size.width, height: 10)
