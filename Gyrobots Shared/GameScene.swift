@@ -80,7 +80,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .CITY:
             self.backgroundColor = SKColor(named: "BackgroundCity") ?? .white
         case .some(.FOREST):
-            self.backgroundColor = .white
+            self.backgroundColor = SKColor(named: "BackgroundForest") ?? .white
         case .none:
             self.backgroundColor = .white
         }
