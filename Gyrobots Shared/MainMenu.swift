@@ -13,39 +13,60 @@ struct MainMenu: View {
     @Environment(AppState.self) private var appState
     
     var body: some View {
-        VStack(spacing: 10) {
+        VStack {
+            Spacer()
             Image(.logo)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(height: 50)
             Spacer()
-                .frame(height: 30)
-            Button {
-                withAnimation {
-                    appState.currentView = .PLAY_MENU
+            HStack {
+                Spacer()
+                VStack(spacing: 10) {
+                    Button {
+                        HapticManager.tap()
+                        appState.selectLevelRandomly()
+                        withAnimation {
+                            appState.currentView = .PLAY_MENU
+                        }
+                    } label: {
+                        Image(.playButton)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 50)
+                    }
+                    Button {
+                        HapticManager.tap()
+                        withAnimation {
+                            appState.currentView = .LEVEL_SELECTION
+                        }
+                    } label: {
+                        Image(.levelsButton)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 50)
+                    }
                 }
-            } label: {
-                Image(.playButton)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 50)
+                Spacer()
+                    .overlay {
+                        if appState.bestTime > 0.0 {
+                            VStack {
+                                Image(.crown)
+                                    .resizable()
+                                    .frame(width: 30, height: 30)
+                                    .padding(.bottom, -5)
+                                Text("\(appState.formattedBestTime)")
+                                    .font(.custom("AvenirNext-Bold", size: 30, relativeTo: .largeTitle))
+                                    .monospacedDigit()
+                                    .foregroundStyle(.white)
+                            Text("Best time")
+                                .font(.custom("AvenirNext-Regular", size: 15, relativeTo: .largeTitle))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    }
             }
-            Button {
-                
-            } label: {
-                Image(.levelsButton)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 50)
-            }
-            Button {
-                
-            } label: {
-                Image(.leaderboardButton)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 50)
-            }
+            Spacer()
         }
     }
 }
