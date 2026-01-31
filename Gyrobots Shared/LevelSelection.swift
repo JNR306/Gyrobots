@@ -22,6 +22,7 @@ struct LevelSelection: View {
             ScrollView(.horizontal) {
                 HStack(spacing: 10) {
                     Button {
+                        HapticManager.tap()
                         appState.selectLevel(.DESERT)
                         withAnimation {
                             appState.createRoom()
@@ -33,6 +34,7 @@ struct LevelSelection: View {
                             .frame(height: 200)
                     }
                     Button {
+                        HapticManager.tap()
                         appState.selectLevel(.CITY)
                         withAnimation {
                             appState.createRoom()
@@ -48,6 +50,7 @@ struct LevelSelection: View {
             }
             Spacer()
             Button {
+                HapticManager.tap()
                 withAnimation {
                     appState.currentView = .MAIN_MENU
                 }

@@ -446,6 +446,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     func jump(with force: CGFloat) {
         guard !isRemoteViewOnly else { return }
         if isGrounded() {
+            if AppState.shared.role == .jump {
+                HapticManager.tap()
+            }
+            mp?.send(MPMessage(type: .jumpSuccessfull))
             player.physicsBody?.velocity.dy = 0
             player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: force))
         }

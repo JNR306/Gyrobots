@@ -47,7 +47,7 @@ class AppState {
     var useMockLevel: Bool = false
 
     // choose per device before connecting
-    var role: Role = .gyro
+    var role: Role = .jump
     
     //let locationHelper = LocationHelper()
         
@@ -62,7 +62,6 @@ class AppState {
     var isNewBestTime: Bool = false
     
     init() {
-        // IMPORTANT: use the .sks-backed scene if you have one
         let scene = GameScene.newGameScene()
         scene.scaleMode = .resizeFill
         scene.mp = mp
@@ -231,6 +230,11 @@ class AppState {
                     withAnimation {
                         self.currentView = .JOINING
                     }
+                case .jumpSuccessfull:
+                    print("JUMP")
+                    if self.role == .jump {
+                        HapticManager.tap()
+                    }
                 }
             }
         }
@@ -322,7 +326,6 @@ class AppState {
         motionManager.stopDeviceMotionUpdates()
     }
 
-    /// Called by UI button on the jump device (or could be called anywhere)
     func handleJumpAction() {
         guard role == .jump else { return }
 

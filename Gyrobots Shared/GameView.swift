@@ -44,6 +44,7 @@ struct GameOverlay: View {
         VStack {
             HStack {
                 Button {
+                    HapticManager.tap()
                     appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
                     appState.cancelMultipeerAndReturnToMenu()
                 } label: {

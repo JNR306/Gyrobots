@@ -51,6 +51,7 @@ struct Waiting: View {
             }
             Spacer()
             Button {
+                HapticManager.tap()
                 withAnimation {
                     appState.cancelMultipeerAndReturnToMenu()
                 }

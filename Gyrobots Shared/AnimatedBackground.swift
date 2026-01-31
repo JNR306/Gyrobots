@@ -26,12 +26,20 @@ struct AnimatedBackground: View {
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geo.size.width, height: geo.size.height)
+                    Image(.BG)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .offset(y: -geo.size.height + (progress * geo.size.height))
             }
         }
         .ignoresSafeArea()
         .drawingGroup()
+        .background {
+            Color.terrain
+                .scaleEffect(10)
+        }
     }
 }
 
