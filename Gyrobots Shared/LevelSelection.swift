@@ -19,29 +19,32 @@ struct LevelSelection: View {
                 .foregroundStyle(.white)
                 .padding()
             Spacer()
-            HStack(spacing: 10) {
-                Spacer()
-                Button {
-                    withAnimation {
-                        appState.currentView = .PLAY_MENU
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    Button {
+                        appState.selectLevel(.DESERT)
+                        withAnimation {
+                            appState.createRoom()
+                        }
+                    } label: {
+                        Image(.desertButton)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 200)
                     }
-                } label: {
-                    Image(.desertButton)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 200)
-                }
-                Button {
-                    withAnimation {
-                        appState.currentView = .PLAY_MENU
+                    Button {
+                        appState.selectLevel(.CITY)
+                        withAnimation {
+                            appState.createRoom()
+                        }
+                    } label: {
+                        Image(.cityButton)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 200)
                     }
-                } label: {
-                    Image(.cityButton)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 200)
                 }
-                Spacer()
+                .containerRelativeFrame(.horizontal)
             }
             Spacer()
             Button {

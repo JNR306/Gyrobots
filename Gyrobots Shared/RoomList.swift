@@ -16,10 +16,17 @@ struct RoomList: View {
     var body: some View {
         VStack {
             Spacer()
-            Text("Join Game")
-                .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
-                .foregroundStyle(.white)
-                .padding()
+            HStack {
+                Image(.person)
+                    .resizable()
+                    .frame(width: 28, height: 28)
+                    .offset(y: -1)
+                    .padding(.trailing, 2)
+                Text("Join Game")
+                    .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
+                    .foregroundStyle(.white)
+            }
+            .padding()
             Spacer()
             Rectangle()
                 .foregroundStyle(.highlight)

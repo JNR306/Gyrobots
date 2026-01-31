@@ -282,8 +282,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         path.move(to: CGPoint(x: leftFixedX, y: bottomFixedY))
         path.addLine(to: CGPoint(x: leftFixedX, y: topFixedY))
-        path.addLine(to: CGPoint(x: startX-200, y: topFixedY))
-        path.addLine(to: CGPoint(x: startX-200, y: 0))
+        path.addLine(to: CGPoint(x: startX-1000, y: topFixedY))
+        path.addLine(to: CGPoint(x: startX-1000, y: 0))
         
         var isTerrainHigh: [Bool] = Array(repeating: false, count: Int((endX-startX))/500)
         for i in 1..<isTerrainHigh.count {
@@ -299,8 +299,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             path.addLine(to: CGPoint(x: i*500+100, y: isTerrainHigh[i] ? 100 : 0))
         }
         //close shape
-        path.addLine(to: CGPoint(x: endX+200, y: isTerrainHigh.last ?? false ? 100 : 0))
-        path.addLine(to: CGPoint(x: endX+200, y: topFixedY))
+        path.addLine(to: CGPoint(x: endX+1000, y: isTerrainHigh.last ?? false ? 100 : 0))
+        path.addLine(to: CGPoint(x: endX+1000, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()

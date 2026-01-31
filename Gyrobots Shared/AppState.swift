@@ -9,6 +9,7 @@ enum CurrentView {
     case MAIN_MENU
     case PLAY_MENU
     case WAITING
+    case JOINING
     case ROOM_LIST
     case GAME
     case RESULT
@@ -19,8 +20,9 @@ enum Role {
     case gyro, jump
 }
 
-enum Level {
-    case DESERT, CITY
+enum Level: Int {
+    case DESERT = 1
+    case CITY = 2
 }
 
 @Observable
@@ -55,7 +57,9 @@ class AppState {
     var elapsedTime: Double = 0
     var isTimerRunning = false
     
-    var bestTime: Double = 0
+    @ObservationIgnored
+    @AppStorage("bestTime") var bestTime: Double = 0
+    var isNewBestTime: Bool = false
     
     init() {
         // IMPORTANT: use the .sks-backed scene if you have one
@@ -102,9 +106,10 @@ class AppState {
     
     func join(room: Room) {
         withAnimation {
-            currentView = .WAITING
+            currentView = .JOINING
         }
         mp.invite(room: room)
+        mp.sendImportant(MPMessage(type: .joining))
     }
     
     private func assignRandomRolesOnce() {
@@ -150,20 +155,21 @@ class AppState {
                     // Only host answers
                     guard self.isHost else { return }
 
-                        if !self.hostStartedLevel {
-                            if self.useMockLevel {
-                                self.gameScene.startMockLevelAsHost()
-                                self.hostSeed = 1
-                            } else {
-                                let seed = Int32.random(in: Int32.min...Int32.max)
-                                self.hostSeed = seed
-                                self.gameScene.startLevelAsHost(seed: seed)
-                            }
-                            self.hostStartedLevel = true
+                    if !self.hostStartedLevel {
+                        if self.useMockLevel {
+                            self.gameScene.startMockLevelAsHost()
+                            self.hostSeed = 1
+                        } else {
+                            let seed = Int32.random(in: Int32.min...Int32.max)
+                            self.hostSeed = seed
+                            self.gameScene.startLevelAsHost(seed: seed)
                         }
+                        self.hostStartedLevel = true
+                    }
 
-                        let seedToSend = Double(self.hostSeed ?? 1)
-                        self.mp.send(MPMessage(type: .levelSeed, a: seedToSend))
+                    let seedToSend = Double(self.hostSeed ?? 1)
+                    print("Level to send: \(self.currentLevel == .DESERT ? "Desert" : "City")")
+                    self.mp.send(MPMessage(type: .levelSeed, a: seedToSend, b: Double(self.currentLevel?.rawValue ?? 0)))
 
                 case .levelSeed:
                     let seed = Int32(msg.a ?? 0)
@@ -172,6 +178,13 @@ class AppState {
                     } else {
                         self.gameScene.startLevelAsJoiner(seed: seed)
                     }
+                    
+                    let receivedLevel: Level? = Level(rawValue: Int(msg.b ?? 0.0))
+                    print("Rceived level: \(receivedLevel == .DESERT ? "Desert" : "City")")
+                    if let level = receivedLevel {
+                        self.currentLevel = level
+                    }
+                    print(self.currentLevel)
 
                     // IMPORTANT: transition joiner into game
                     withAnimation {
@@ -213,6 +226,10 @@ class AppState {
                 case .restartedGame:
                     withAnimation {
                         self.restartGame()
+                    }
+                case .joining:
+                    withAnimation {
+                        self.currentView = .JOINING
                     }
                 }
             }
@@ -335,29 +352,42 @@ class AppState {
     }
     
     func updateBestTime() {
+        isNewBestTime = false
         if elapsedTime > 0 && elapsedTime < bestTime {
             bestTime = elapsedTime
+            isNewBestTime = true
             print("Best time")
         } else if bestTime == 0 {
             bestTime = elapsedTime
+            isNewBestTime = true
             print("First best time")
         }
+    }
+    
+    var formattedElapsedTimeWithoutLabel: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        var string = formatter.string(from: elapsedTime) ?? "00:00"
+        return string
     }
     
     var formattedElapsedTime: String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .positional
-        
-        return formatter.string(from: elapsedTime) ?? "00:00"
+        var string = formatter.string(from: elapsedTime) ?? "00:00"
+        string += elapsedTime < 60 ? "s" : "min"
+        return string
     }
     
     var formattedBestTime: String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .positional
-        
-        return formatter.string(from: bestTime) ?? "00:00"
+        var string = formatter.string(from: bestTime) ?? "00:00"
+        string += bestTime < 60 ? "s" : "min"
+        return string
     }
     
     func finishGame() {
@@ -366,6 +396,15 @@ class AppState {
         withAnimation {
             self.currentView = .RESULT
         }
+    }
+    
+    func selectLevel(_ level: Level) {
+        self.currentLevel = level
+        print("Selected level: \(level == .DESERT ? "Desert" : "City")")
+    }
+    
+    func selectLevelRandomly() {
+        self.currentLevel = .DESERT
     }
     
     func restartGame() {

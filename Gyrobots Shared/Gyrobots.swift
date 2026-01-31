@@ -64,6 +64,11 @@ struct Gyrobots: App {
                             .id("LevelSelection")
                             .zIndex(2.1)
                             .transition(.push(from: .bottom))
+                    case .JOINING:
+                        Joining()
+                            .id("Joining")
+                            .zIndex(2.2)
+                            .transition(.push(from: .bottom))
                     }
                     
                 }
