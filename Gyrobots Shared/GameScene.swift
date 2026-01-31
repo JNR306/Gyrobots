@@ -19,15 +19,15 @@ struct PhysicsCategory {
 final class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // MARK: - Nodes
-    var player: SKShapeNode!
+    var player: SKSpriteNode!
     var gameCamera: SKCameraNode!
     var terrainNode: SKShapeNode!
+    var obstaclesNode: SKNode!
 
     // MARK: - Settings
     let moveSpeed: CGFloat = 300.0
     let jumpForce: CGFloat = 1000.0
     let smallJumpForce: CGFloat = 1000.0
-    let playerSize = CGSize(width: 50, height: 100)
 
     // MARK: - Multiplayer
     weak var mp: MultipeerManager?
@@ -56,6 +56,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     var isMovingLeft = false
     var isMovingRight = false
     var isCrouching = false
+    
+    // MARK: - Paralax Background
+    var backgroundLayer1: SKNode!
+    var backgroundLayer2: SKNode!
 
     // MARK: - Scene loading
     class func newGameScene() -> GameScene {
@@ -68,7 +72,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         setBackground()
         
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
-
+        setupBackground()
         setupCamera()
     }
     
@@ -79,7 +83,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             self.backgroundColor = SKColor(named: "BackgroundDesert") ?? .white
         case .CITY:
             self.backgroundColor = SKColor(named: "BackgroundCity") ?? .white
-        case .none:
+        default:
             self.backgroundColor = .white
         }
     }
@@ -218,6 +222,61 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         addChild(gameCamera)
         camera = gameCamera
     }
+    
+    func setupBackground() {
+        // 1. Determine Asset Names
+        var assetName = "City"
+        switch AppState.shared.currentLevel {
+            case .DESERT: assetName = "Desert"
+            case .CITY: assetName = "City"
+            case .FOREST: assetName = "Desert"
+            default : assetName = "Desert"
+        }
+    
+    
+        let image1 = "Background\(assetName)1"
+        let image2 = "Background\(assetName)2"
+        
+        // 2. Create Containers
+        backgroundLayer1 = SKNode()
+        backgroundLayer2 = SKNode()
+        
+        // Z-Positions: Player is 0. Backgrounds must be negative.
+        // Layer 1 is closer than Layer 2, so it sits on top (-10 vs -20).
+        backgroundLayer1.zPosition = -10
+        backgroundLayer2.zPosition = -20
+        
+        addChild(backgroundLayer1)
+        addChild(backgroundLayer2)
+        
+        // 3. Helper to Tile Images
+        // This function places copies of the image side-by-side to cover the world width
+        func createStrip(imageName: String, parentNode: SKNode, factor: CGFloat, yOffset: CGFloat) {
+                let tempSprite = SKSpriteNode(imageNamed: imageName)
+                let width = tempSprite.size.width
+                
+                // Calculate how many sprites we need to cover the level
+                // Since parallax layers move slower, they actually need LESS width than the full level,
+                // but tiling the full length is the safest/easiest way to prevent gaps.
+                let numberOfTiles = Int((rightFixedX - leftFixedX) / width) + 5
+                
+                for i in 0..<numberOfTiles {
+                    let sprite = SKSpriteNode(imageNamed: imageName)
+                    sprite.anchorPoint = CGPoint(x: 0, y: 0.5) // Anchor left-center
+                    // Position starting from leftFixedX
+                    sprite.position = CGPoint(x: leftFixedX + CGFloat(i) * width, y: yOffset)
+                    
+                    // Optional: Scale to fit screen height if needed
+                     sprite.size = CGSize(width: width, height: self.size.height)
+                    
+                    parentNode.addChild(sprite)
+                }
+            }
+            
+            // 4. Generate the Strips
+            createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 100.0)
+            createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 200.0)
+        }
 
     func setupPlayer() {
         // Remove an existing player if we’re restarting / re-entering
@@ -225,18 +284,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             existing.removeFromParent()
         }
         childNode(withName: "player")?.removeFromParent()
-        let rect = CGRect(x: -playerSize.width / 2, y: 0, width: playerSize.width, height: playerSize.height)
-        player = SKShapeNode(rect: rect)
-        player.name = "player"
-        player.fillColor = SKColor.red
-        player.strokeColor = SKColor.clear
+        var imageName = "PlayerCity"
+        switch AppState.shared.currentLevel {
+            case .CITY: imageName = "RobotCity"
+            case .DESERT: imageName = "RobotDesert"
+            case .FOREST: imageName = "RobotDesert"
+            default : imageName = "RobotCity"
+        }
         
-        let startY = 100
+        player = SKSpriteNode(imageNamed: imageName)
+        player.name = "player"
+        
+        let startY = 200
         player.position = CGPoint(x: 0, y: startY)
 
         player.physicsBody = SKPhysicsBody(
-            rectangleOf: playerSize,
-            center: CGPoint(x: 0, y: playerSize.height / 2)
+            rectangleOf: player.size,
+            center: CGPoint(x: 0, y: 0)
         )
         player.physicsBody?.isDynamic = true
         player.physicsBody?.allowsRotation = false
@@ -254,6 +318,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player?.removeFromParent()
         gameCamera?.removeFromParent()
         terrainNode?.removeFromParent()
+        obstaclesNode?.removeFromParent()
+        
+        backgroundLayer1?.removeFromParent()
+        backgroundLayer2?.removeFromParent()
     }
 
     // MARK: - Procedural Terrain
@@ -266,6 +334,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     let bottomFixedY: CGFloat = -2000
     
     func generateTerrain() {
+        obstaclesNode = SKNode()
+        addChild(obstaclesNode)
         let path = CGMutablePath()
         
         // Start the shape far below/left to ensure it's solid
@@ -415,7 +485,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         obstacle.physicsBody?.friction = 0.5
         obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
         
-        addChild(obstacle)
+        obstaclesNode.addChild(obstacle)
     }
     // MARK: - Game Loop
 
@@ -438,6 +508,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let newY = currentY + (targetY - currentY) * 0.1
 
             cam.position = CGPoint(x: targetX, y: newY)
+        }
+        
+        if let cam = gameCamera {
+            backgroundLayer1.position.x = cam.position.x * 0.1
+            backgroundLayer2.position.x = cam.position.x * 0.5
+            
+            backgroundLayer1.position.y = cam.position.y * 0.05
+            backgroundLayer2.position.y = cam.position.y * 0.1
         }
         
         AppState.shared.updateTimer()

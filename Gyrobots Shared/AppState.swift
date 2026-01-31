@@ -25,6 +25,7 @@ enum Role {
 enum Level: Int {
     case DESERT = 1
     case CITY = 2
+    case FOREST = 3
 }
 
 @Observable
