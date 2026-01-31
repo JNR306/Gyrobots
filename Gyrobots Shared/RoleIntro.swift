@@ -30,11 +30,6 @@ struct RoleIntro: View {
             Spacer()
 
             HStack {
-                Image(.plus)
-                    .resizable()
-                    .frame(width: 28, height: 28)
-                    .offset(y: -1)
-                    .padding(.trailing, 2)
                 Text("Your Role")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
                     .foregroundStyle(.white)
@@ -77,8 +72,8 @@ struct RoleIntro: View {
             Spacer()
         }
         .onAppear {
-            // Auto-continue after 2–3 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            // Auto-continue after 5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                 withAnimation {
                     appState.currentView = .GAME
                 }
