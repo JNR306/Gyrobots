@@ -25,12 +25,14 @@ struct GameView: View {
         .onDisappear {
             appState.stopSensors()
         }
+        /*
         .overlay(alignment: .topLeading) { //TEMPORARY - ONLY FOR DEVELOPMENT
             Text("isHost: \(appState.isHost ? "YES" : "NO")  role: \(appState.role == .gyro ? "GYRO" : "JUMP")")
                 .padding(8)
                 .background(.black.opacity(0.6))
                 .foregroundStyle(.white)
         }
+         */
     }
 }
 
@@ -50,7 +52,7 @@ struct GameOverlay: View {
                         .frame(width: 40, height: 40)
                 }
                 Spacer()
-                Text("\(appState.formattedElapsedTime)")
+                Text("\(appState.formattedElapsedTimeWithoutLabel)")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
                     .monospacedDigit()
                     .foregroundStyle(.terrain)

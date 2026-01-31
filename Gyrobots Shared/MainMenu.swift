@@ -24,6 +24,7 @@ struct MainMenu: View {
                 Spacer()
                 VStack(spacing: 10) {
                     Button {
+                        appState.selectLevelRandomly()
                         withAnimation {
                             appState.currentView = .PLAY_MENU
                         }

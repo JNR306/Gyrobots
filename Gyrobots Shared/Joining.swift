@@ -1,17 +1,15 @@
 //
-//  Waiting.swift
+//  Joining.swift
 //  Gyrobots
 //
-//  Created by Mert on 30.01.2026.
+//  Created by Jan-Niklas Röhlig on 31.01.26.
 //
 
-
 import SwiftUI
-import SpriteKit
 internal import Combine
 
-struct Waiting: View {
-
+struct Joining: View {
+    
     @Environment(AppState.self) private var appState
     
     @State private var dotCount = 0
@@ -21,22 +19,17 @@ struct Waiting: View {
         VStack {
             Spacer()
             HStack {
-                Image(.plus)
-                    .resizable()
-                    .frame(width: 28, height: 28)
-                    .offset(y: -1)
-                    .padding(.trailing, 2)
-                Text("New Game")
+                Text("Game")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
                     .foregroundStyle(.white)
             }
             .padding()
             Spacer()
             ZStack(alignment: .leading) {
-                Text("Waiting for other player...")
+                Text("Connecting...")
                     .font(.custom("AvenirNext-Regular", size: 20, relativeTo: .largeTitle))
                     .opacity(0.0)
-                Text("Waiting for other player\(String(repeating: ".", count: dotCount))")
+                Text("Connecting\(String(repeating: ".", count: dotCount))")
                     .font(.custom("AvenirNext-Regular", size: 20, relativeTo: .largeTitle))
                     .foregroundStyle(.white)
             }
@@ -69,4 +62,8 @@ struct Waiting: View {
             Spacer()
         }
     }
+}
+
+#Preview {
+    Joining()
 }
