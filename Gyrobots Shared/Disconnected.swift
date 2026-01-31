@@ -21,10 +21,9 @@ struct Disconnected: View {
             Spacer()
 
             HStack {
-                Image(.plus)
+                Image(.warning)
                     .resizable()
-                    .frame(width: 28, height: 28)
-                    .offset(y: -1)
+                    .frame(width: 33, height: 33)
                     .padding(.trailing, 2)
                 Text("Disconnected")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
@@ -50,7 +49,7 @@ struct Disconnected: View {
             }
             .onAppear {
                 // Backup (in case handler isn't called for some reason)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                     withAnimation {
                         appState.cancelMultipeerAndReturnToMenu()
                     }
@@ -66,10 +65,11 @@ struct Disconnected: View {
                 }
             } label: {
                 HStack {
-                    Image(.backArrow)
+                    Image(.home)
                         .resizable()
-                        .frame(width: 15, height: 15)
-                    Text("Back")
+                        .frame(width: 16, height: 16)
+                        .offset(y: -1)
+                    Text("Main Menu")
                         .font(.custom("AvenirNext-Medium", size: 20, relativeTo: .largeTitle))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)

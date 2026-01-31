@@ -498,8 +498,8 @@ class AppState {
             currentView = .DISCONNECTED
         }
 
-        // After 2.5s, reset everything and return to menu
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+        // After 5s, reset everything and return to menu
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             guard let self else { return }
             self.cancelMultipeerAndReturnToMenu()
             self.isHandlingDisconnect = false
