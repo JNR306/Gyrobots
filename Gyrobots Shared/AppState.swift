@@ -14,6 +14,8 @@ enum CurrentView {
     case GAME
     case RESULT
     case LEVEL_SELECTION
+    case DISCONNECTED
+    case ROLE_INTRO
 }
 
 enum Role {
@@ -40,6 +42,7 @@ class AppState {
     private var hostSeed: Int32?
     private var hostStartedLevel = false
     private var didAssignRoles = false
+    private var isHandlingDisconnect = false
     
     var availableRooms: [Room] = []
     private var hasSentHandshake = false
@@ -90,19 +93,23 @@ class AppState {
 
     
     func createRoom() {
+        mp.stop()
         isHost = true
-        mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
-        withAnimation {
-            currentView = .WAITING
-        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+               self.mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
+               withAnimation { self.currentView = .WAITING }
+           }
     }
 
     func browseRooms() {
+        mp.stop()
         isHost = false
-        mp.startBrowsingRooms()
-        withAnimation {
-            currentView = .ROOM_LIST
-        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                self.mp.startBrowsingRooms()
+                withAnimation { self.currentView = .ROOM_LIST }
+            }
     }
     
     func join(room: Room) {
@@ -110,7 +117,7 @@ class AppState {
             currentView = .JOINING
         }
         mp.invite(room: room)
-        mp.sendImportant(MPMessage(type: .joining))
+        //mp.sendImportant(MPMessage(type: .joining))
     }
     
     private func assignRandomRolesOnce() {
@@ -134,12 +141,12 @@ class AppState {
             guard let self else { return }
             DispatchQueue.main.async {
                 if peers.count == 1 { // 1v1
-                    // Assign random control roles once connected
-                    self.assignRandomRolesOnce()
-
-                    // Move both devices into the game view
-                    withAnimation {
-                        self.currentView = .GAME
+                    //Host assigns roles and immediately shows role screen
+                    if self.isHost {
+                        self.assignRandomRolesOnce()
+                        withAnimation {
+                            self.currentView = .ROLE_INTRO
+                        }
                     }
                 }
             }
@@ -199,6 +206,10 @@ class AppState {
                     if !self.isHost {
                         self.role = hostIsGyro ? .jump : .gyro
                         self.setupGameRoleFlags()
+
+                        withAnimation {
+                            self.currentView = .ROLE_INTRO
+                        }
                     }
 
                 case .tilt:
@@ -248,6 +259,13 @@ class AppState {
                         HapticManager.tap()
                     }
                 }
+            }
+        }
+        
+        mp.onPeerDisconnected = { [weak self] in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.handlePeerDisconnected()
             }
         }
 
@@ -437,6 +455,8 @@ class AppState {
         hostStartedLevel = false
         hostSeed = nil
 
+        didAssignRoles = false
+
         // Reset timer
         elapsedTime = 0
         isTimerRunning = false
@@ -448,48 +468,77 @@ class AppState {
         newScene.mp = mp
         self.gameScene = newScene
 
-        // Re-apply role flags
-        setupGameRoleFlags()
+        if isHost {
+            assignRandomRolesOnce()
 
-        // Go back into game
-        withAnimation {
-            currentView = .GAME
+            withAnimation {
+                currentView = .ROLE_INTRO
+            }
+        } else {
+            withAnimation {
+                currentView = .JOINING
+            }
         }
     }
+
+    func handlePeerDisconnected() {
+        // Prevent repeated triggers (MCSession can spam state changes)
+        guard !isHandlingDisconnect else { return }
+        isHandlingDisconnect = true
+
+        // If we're already in menu-ish screens, just clean up and go menu.
+        if currentView == .MAIN_MENU || currentView == .PLAY_MENU || currentView == .ROOM_LIST || currentView == .LEVEL_SELECTION {
+            cancelMultipeerAndReturnToMenu()
+            isHandlingDisconnect = false
+            return
+        }
+
+        // Show "Disconnected" screen
+        withAnimation {
+            currentView = .DISCONNECTED
+        }
+
+        // After 2.5s, reset everything and return to menu
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            guard let self else { return }
+            self.cancelMultipeerAndReturnToMenu()
+            self.isHandlingDisconnect = false
+        }
+    }
+
 
     func cancelMultipeerAndReturnToMenu() {
         stopTimer()
         elapsedTime = 0.0
-        
-        // 1. Stop motion updates safely (gyro device)
-        stopSensors()
 
-        // 2. Stop ALL multipeer activity
-        //    (advertising, browsing, session)
+        stopSensors()
         mp.stop()
 
-        // 3. Reset multiplayer / room state
+        //Reset multiplayer / run flags
         availableRooms.removeAll()
         hostSeed = nil
         hostStartedLevel = false
         hasSentHandshake = false
 
-        // 4. Reset role to a safe default
-        //    (actual role will be set again when creating/joining)
+        didAssignRoles = false
+        isHandlingDisconnect = false
+        isHost = false
+
+        // Optional: also reset level selection per your design
+        // currentLevel = .DESERT
+
         role = (UIDevice.current.userInterfaceIdiom == .pad) ? .jump : .gyro
         setupGameRoleFlags()
 
-        // 5. (Optional but recommended) reset scene-side MP state
         gameScene.isRemoteViewOnly = (role == .gyro)
         gameScene.tiltX = 0
-        
         gameScene.destructLevel()
 
-        // 6. Navigate back to main menu
         withAnimation {
             currentView = .MAIN_MENU
         }
     }
+
 
 
 }
