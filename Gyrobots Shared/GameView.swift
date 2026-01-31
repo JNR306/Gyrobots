@@ -86,6 +86,30 @@ struct GameOverlay: View {
     }
 }
 
+struct TiltOverlay: View {
+    
+    @Environment(AppState.self) private var appState
+    
+    var body: some View {
+        GeometryReader { geo in
+            VStack {
+                Spacer()
+                if appState.role == .gyro {
+                    Rectangle()
+                        .foregroundStyle(.darkHighlight)
+                        .frame(width: geo.size.width, height: 10)
+                        .overlay {
+                            Rectangle()
+                                .foregroundStyle(.white)
+                                .frame(width: 100, height: 10)
+                                .offset(x: appState.tiltX * (geo.size.width - 100) / 2)
+                        }
+                }
+            }
+        }
+    }
+}
+
 #Preview {
     ZStack {
         GameView()

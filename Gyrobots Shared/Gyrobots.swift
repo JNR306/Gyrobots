@@ -97,6 +97,10 @@ struct Gyrobots: App {
                             .overlay {
                                 GameOverlay()
                             }
+                            .overlay {
+                                TiltOverlay()
+                                    .ignoresSafeArea()
+                            }
                             .id("GameView")
                             .zIndex(2.3)
                             .transition(.push(from: .bottom))

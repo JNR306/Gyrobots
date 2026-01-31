@@ -61,6 +61,8 @@ class AppState {
     @AppStorage("bestTime") var bestTime: Double = 0
     var isNewBestTime: Bool = false
     
+    var tiltX: Double = 0.0
+    
     init() {
         let scene = GameScene.newGameScene()
         scene.scaleMode = .resizeFill
@@ -292,15 +294,15 @@ class AppState {
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
             guard let self else { return }
             guard error == nil, let motion else { return }
-
+            
             let g = motion.gravity
-
+            
             // Current interface orientation (iPad can be portrait or landscape)
             let orientation: UIInterfaceOrientation = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
                 .first?
                 .effectiveGeometry.interfaceOrientation ?? .portrait
-
+            
             // Map "tilt left/right" to a consistent axis depending on orientation.
             // (Signs chosen so it feels the same directionally when rotating the device.)
             let raw: Double
@@ -316,11 +318,17 @@ class AppState {
             default:
                 raw = g.x
             }
-
+            
             let sensitivity: Double = 0.35
             let normalized = max(-1.0, min(1.0, raw / sensitivity))
             let x = CGFloat(normalized)
-
+            
+            // to display the device rotation
+            if self.role == .gyro {
+                self.tiltX = x
+                //print("Sensor: \(x)")
+            }
+            
             if self.isHost {
                 self.gameScene.tiltX = x
             } else {
