@@ -61,6 +61,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func didMove(to view: SKView) {
+        setBackground()
+        
+        physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
+
+        setupCamera()
+    }
+    
+    func setBackground() {
         // Setting background color
         switch AppState.shared.currentLevel {
         case .DESERT:
@@ -70,10 +78,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .none:
             self.backgroundColor = .white
         }
-        
-        physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
-
-        setupCamera()
     }
 
     // MARK: - Level start (seeded)
