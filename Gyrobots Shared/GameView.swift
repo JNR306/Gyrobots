@@ -76,16 +76,17 @@ struct GameOverlay: View {
             .padding()
             Spacer()
             if appState.role == .jump {
+                let buttonSize = UIDevice.current.userInterfaceIdiom == .pad ? CGFloat(100) : CGFloat(80)
                 HStack {
                     Button {
                         //collect
                     } label: {
                         Image(.collectButton)
                             .resizable()
-                            .frame(width: 100, height: 100)
+                            .frame(width: buttonSize, height: buttonSize)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .frame(width: 100, height: 100)
+                    .frame(width: buttonSize, height: buttonSize)
                     .padding()
                     Spacer()
                     Button {
@@ -93,10 +94,10 @@ struct GameOverlay: View {
                     } label: {
                         Image(.jumpButton)
                             .resizable()
-                            .frame(width: 100, height: 100)
+                            .frame(width: buttonSize, height: buttonSize)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .frame(width: 100, height: 100)
+                    .frame(width: buttonSize, height: buttonSize)
                     .padding()
                 }
             }
@@ -116,8 +117,8 @@ struct TiltOverlay: View {
                     Image(appState.tiltX > appState.gameScene.tiltDeadzone ? .rightMovementIndicator : appState.tiltX < -appState.gameScene.tiltDeadzone ? .leftMovementIndicator : .noMovementIndicator)
                         .resizable()
                         .scaledToFit()
-                        .frame(height: 50)
-                        .padding(.bottom)
+                        .frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 50 : 30)
+                        .padding(.bottom, UIDevice.current.userInterfaceIdiom == .pad ? 10 : 5)
                     Rectangle()
                         .foregroundStyle(.darkHighlight)
                         .frame(width: geo.size.width, height: 10)

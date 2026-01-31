@@ -222,6 +222,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func setupCamera() {
         gameCamera = SKCameraNode()
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            gameCamera.setScale(1.5)
+        }
         addChild(gameCamera)
         camera = gameCamera
     }
