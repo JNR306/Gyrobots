@@ -19,6 +19,7 @@ enum MPMessageType: String, Codable {
     case cancelMultipeer
     case restartedGame
     case joining
+    case jumpSuccessfull
 }
 
 struct MPMessage: Codable {

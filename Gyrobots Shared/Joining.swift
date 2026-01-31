@@ -44,6 +44,7 @@ struct Joining: View {
             }
             Spacer()
             Button {
+                HapticManager.tap()
                 withAnimation {
                     appState.cancelMultipeerAndReturnToMenu()
                 }

@@ -42,6 +42,7 @@ struct RoomList: View {
                         } else {
                             ForEach(appState.availableRooms, id: \.id) { room in
                                 Button {
+                                    HapticManager.tap()
                                     withAnimation {
                                         appState.join(room: room)
                                     }
@@ -58,6 +59,7 @@ struct RoomList: View {
                 }
             Spacer()
             Button {
+                HapticManager.tap()
                 withAnimation {
                     appState.currentView = .PLAY_MENU
                 }

@@ -48,6 +48,7 @@ struct ResultView: View {
             Spacer()
             HStack(spacing: 20) {
                 Button {
+                    HapticManager.tap()
                     appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
                     appState.cancelMultipeerAndReturnToMenu()
                 } label: {
@@ -64,6 +65,7 @@ struct ResultView: View {
                     .padding()
                 }
                 Button {
+                    HapticManager.tap()
                     appState.mp.sendImportant(MPMessage(type: .restartedGame))
                     appState.restartGame()
                 } label: {

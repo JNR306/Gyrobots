@@ -23,6 +23,7 @@ struct PlayMenu: View {
             HStack(spacing: 10) {
                 Spacer()
                 Button {
+                    HapticManager.tap()
                     withAnimation {
                         appState.createRoom()
                     }
@@ -33,6 +34,7 @@ struct PlayMenu: View {
                         .frame(height: 200)
                 }
                 Button {
+                    HapticManager.tap()
                     withAnimation {
                         appState.browseRooms()
                     }
@@ -46,6 +48,7 @@ struct PlayMenu: View {
             }
             Spacer()
             Button {
+                HapticManager.tap()
                 withAnimation {
                     appState.currentView = .MAIN_MENU
                 }
