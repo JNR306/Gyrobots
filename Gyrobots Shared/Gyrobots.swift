@@ -113,6 +113,16 @@ struct Gyrobots: App {
                             .id("Joining")
                             .zIndex(2.2)
                             .transition(.push(from: .bottom))
+                    case .DISCONNECTED:
+                        Disconnected()
+                            .id("Disconnected")
+                            .zIndex(2.2)
+                            .transition(.push(from: .bottom))
+                    case .ROLE_INTRO:
+                        RoleIntro()
+                            .id("RoleIntro")
+                            .zIndex(2.2)
+                            .transition(.push(from: .bottom))
                     }
                     
                 }

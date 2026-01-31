@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SpriteKit
+import MultipeerConnectivity
 
 struct GameView: View {
     
@@ -47,8 +48,16 @@ struct GameOverlay: View {
             HStack {
                 Button {
                     HapticManager.tap()
-                    appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
-                    appState.cancelMultipeerAndReturnToMenu()
+                    if !appState.mp.session.connectedPeers.isEmpty {
+                            appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
+
+                            // Give the message a moment to flush
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                appState.cancelMultipeerAndReturnToMenu()
+                            }
+                        } else {
+                            appState.cancelMultipeerAndReturnToMenu()
+                        }
                 } label: {
                     Image(.closeButton)
                         .resizable()
