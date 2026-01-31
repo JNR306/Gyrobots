@@ -8,8 +8,52 @@
 import Foundation
 import SwiftUI
 
+class AppDelegate: NSObject, UIApplicationDelegate {
+    static var orientationLock = UIInterfaceOrientationMask.all
+
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        return AppDelegate.orientationLock
+    }
+    
+    static func lockOrientation() {
+        print("lock")
+        print(AppDelegate.orientationLock)
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+        
+        let currentOrientation = windowScene.interfaceOrientation
+        let mask: UIInterfaceOrientationMask
+        
+        switch currentOrientation {
+        case .landscapeLeft: mask = .landscapeLeft
+        case .landscapeRight: mask = .landscapeRight
+        case .portrait: mask = .portrait
+        case .portraitUpsideDown: mask = .portraitUpsideDown
+        default: mask = .all
+        }
+        
+        AppDelegate.orientationLock = mask
+        
+        print(AppDelegate.orientationLock)
+        
+        windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: mask))
+        windowScene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+    }
+
+    static func unlockOrientation() {
+        print("unlock")
+        AppDelegate.orientationLock = .all
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .all))
+            windowScene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        }
+    }
+}
+
 @main
 struct Gyrobots: App {
+    
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
         
     var body: some Scene {
         WindowGroup {
