@@ -104,15 +104,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func configureLevel(seed: Int32) {
-        let source = GKPerlinNoiseSource(
-            frequency: 0.002,
-            octaveCount: 3,
-            persistence: 0.5,
-            lacunarity: 2.0,
-            seed: seed
-        )
-        noise = GKNoise(source)
-
         // Deterministic RNG for obstacles
         rng = GKARC4RandomSource(seed: Data([
             UInt8(truncatingIfNeeded: seed & 0xFF),
@@ -254,44 +245,63 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         terrainNode.removeFromParent()
     }
 
-    // MARK: - Procedural Terrain (Perlin Noise)
-    
-    func getNoiseValue(at x: CGFloat) -> CGFloat {
-        guard let noise else { return 0 } // safety until configured
-        let position = vector_float2(Float(x), 0)
-        let noiseValue = noise.value(atPosition: position)
-        return CGFloat(noiseValue)
-    }
+    // MARK: - Procedural Terrain
     
     let startX: CGFloat = 0
-    let endX: CGFloat = 5000
+    let endX: CGFloat = 15000
     let leftFixedX: CGFloat = -2000
-    let rightFixedX: CGFloat = 7000
+    let rightFixedX: CGFloat = 17000
     let topFixedY: CGFloat = 2000
     let bottomFixedY: CGFloat = -2000
     
     func generateTerrain() {
         let path = CGMutablePath()
         
+        // Start the shape far below/left to ensure it's solid
         path.move(to: CGPoint(x: leftFixedX, y: bottomFixedY))
         path.addLine(to: CGPoint(x: leftFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: startX-200, y: topFixedY))
         path.addLine(to: CGPoint(x: startX-200, y: 0))
         
-        var isTerrainHigh: [Bool] = Array(repeating: false, count: Int((endX-startX))/500)
+        let totalSegments = Int((endX-startX))/500
+        var isTerrainHigh: [Bool] = Array(repeating: false, count: totalSegments)
+        
+        // 1. Calculate Heights
         for i in 1..<isTerrainHigh.count {
-            isTerrainHigh[i] = getNoiseValue(at: CGFloat(i*500)) > 0 ? true : false
-        }
-        print(isTerrainHigh)
-        for i in 0..<isTerrainHigh.count {
-            if i == 0 {
-                path.addLine(to: CGPoint(x: i*500, y: 0))
+            if let rng = rng {
+                // STREAK PREVENTION:
+                // If the last 2 sections were flat (false), FORCE a hill (true).
+                // Otherwise, flip a coin (50/50).
+                if i >= 2 && !isTerrainHigh[i-1] && !isTerrainHigh[i-2] {
+                    isTerrainHigh[i] = true
+                } else {
+                    isTerrainHigh[i] = rng.nextInt(upperBound: 2) == 0
+                }
             } else {
-                path.addLine(to: CGPoint(x: i*500, y: isTerrainHigh[i-1] ? 100 : 0))
+                isTerrainHigh[i] = Bool.random()
             }
-            path.addLine(to: CGPoint(x: i*500+100, y: isTerrainHigh[i] ? 100 : 0))
         }
-        //close shape
+        
+        // 2. Draw Path & Spawn Obstacles
+        for i in 0..<isTerrainHigh.count {
+            let chunkX = CGFloat(i * 500)
+            let chunkY: CGFloat = isTerrainHigh[i] ? 100 : 0
+            
+            // Draw lines
+            if i == 0 {
+                path.addLine(to: CGPoint(x: chunkX, y: 0))
+            } else {
+                let prevY: CGFloat = isTerrainHigh[i-1] ? 100 : 0
+                path.addLine(to: CGPoint(x: chunkX, y: prevY))
+            }
+            path.addLine(to: CGPoint(x: chunkX + 100, y: chunkY))
+            
+            if i > 1, let rng = rng, rng.nextInt(upperBound: 3) < 2 {
+                spawnRandomObstacle(at: chunkX + 250, groundY: chunkY)
+            }
+        }
+        
+        // Close shape
         path.addLine(to: CGPoint(x: endX+200, y: isTerrainHigh.last ?? false ? 100 : 0))
         path.addLine(to: CGPoint(x: endX+200, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
@@ -302,9 +312,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         terrainNode.fillColor = SKColor(named: "Terrain") ?? .white
         terrainNode.strokeColor = .clear
         
-        terrainNode.physicsBody = SKPhysicsBody(edgeLoopFrom: path) //hitbox is of course same path
+        terrainNode.physicsBody = SKPhysicsBody(edgeLoopFrom: path)
         terrainNode.physicsBody?.isDynamic = false
-        terrainNode.physicsBody?.friction = 0.5 //interacts with player friciton
+        terrainNode.physicsBody?.friction = 0.5
+        terrainNode.physicsBody?.categoryBitMask = PhysicsCategory.terrain
         
         addChild(terrainNode)
         
@@ -355,24 +366,49 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
-        guard let rng else { return }
-
-        let isHigh = (rng.nextInt(upperBound: 2) == 0)
-        let size = CGSize(width: 60, height: 60)
-
-        let obstacle = SKShapeNode(rectOf: size)
-        obstacle.fillColor = .orange
-        obstacle.lineWidth = 0
-
-        let yOffset = isHigh ? 130.0 : 30.0
-        obstacle.position = CGPoint(x: x, y: groundY + yOffset)
-
-        obstacle.physicsBody = SKPhysicsBody(rectangleOf: size)
+        // 1. Determine Asset Name based on Level
+        var assetPrefix = "City" // Default
+        if AppState.shared.currentLevel == .DESERT {
+            assetPrefix = "Beach"
+        }
+        
+        // Choose random size
+        var isLarge = false
+        if let rng = rng {
+            isLarge = rng.nextInt(upperBound: 2) == 0
+        } else {
+            isLarge = Bool.random()
+        }
+        
+        let sizeSuffix = isLarge ? "ObstacleLarge" : "ObstacleSmall"
+        let imageName = "\(assetPrefix)\(sizeSuffix)"
+        
+        let obstacle = SKSpriteNode(imageNamed: imageName)
+        let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
+        
+        if let texture = obstacle.texture {
+            // Calculate width to maintain the original aspect ratio
+            let aspectRatio = texture.size().width / texture.size().height
+            obstacle.size = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
+        } else {
+            // Fallback if image is missing
+            obstacle.size = CGSize(width: targetHeight, height: targetHeight)
+            obstacle.color = .red
+        }
+        
+        // 5. Position
+        // Place it sitting exactly on top of the ground
+        obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
+        
+        // 6. Physics Body
+        // Matches the visual size exactly
+        obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
         obstacle.physicsBody?.isDynamic = false
-
+        obstacle.physicsBody?.friction = 0.5
+        obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
+        
         addChild(obstacle)
     }
-
     // MARK: - Game Loop
 
     override func update(_ currentTime: TimeInterval) {

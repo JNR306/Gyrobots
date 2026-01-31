@@ -14,7 +14,7 @@ struct Gyrobots: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                Image(.BG)
+                Image("BG")
                   .resizable()
                   .aspectRatio(contentMode: .fill)
                   .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)

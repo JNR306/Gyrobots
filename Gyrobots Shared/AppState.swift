@@ -52,7 +52,6 @@ class AppState {
     var bestTime: Double? = nil
     
     var currentLevel: Level? = .DESERT
-    
     var startTime: Double = 0
     var elapsedTime: Double = 0
     var isTimerRunning = false
