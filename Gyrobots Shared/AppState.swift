@@ -9,17 +9,22 @@ enum CurrentView {
     case MAIN_MENU
     case PLAY_MENU
     case WAITING
+    case JOINING
     case ROOM_LIST
     case GAME
     case RESULT
+    case LEVEL_SELECTION
+    case DISCONNECTED
+    case ROLE_INTRO
 }
 
 enum Role {
     case gyro, jump
 }
 
-enum Level {
-    case DESERT, CITY
+enum Level: Int {
+    case DESERT = 1
+    case CITY = 2
 }
 
 @Observable
@@ -37,6 +42,7 @@ class AppState {
     private var hostSeed: Int32?
     private var hostStartedLevel = false
     private var didAssignRoles = false
+    private var isHandlingDisconnect = false
     
     var availableRooms: [Room] = []
     private var hasSentHandshake = false
@@ -47,17 +53,19 @@ class AppState {
     var role: Role = .gyro
     
     //let locationHelper = LocationHelper()
-    
-    var currentTime: Double? = nil
-    var bestTime: Double? = nil
-    
+        
     var currentLevel: Level? = .DESERT
     var startTime: Double = 0
     var elapsedTime: Double = 0
     var isTimerRunning = false
     
+    @ObservationIgnored
+    @AppStorage("bestTime") var bestTime: Double = 0
+    var isNewBestTime: Bool = false
+    
+    var tiltX: Double = 0.0
+    
     init() {
-        // IMPORTANT: use the .sks-backed scene if you have one
         let scene = GameScene.newGameScene()
         scene.scaleMode = .resizeFill
         scene.mp = mp
@@ -84,20 +92,31 @@ class AppState {
 
     
     func createRoom() {
+        mp.stop()
         isHost = true
-        mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
-        currentView = .WAITING
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+               self.mp.startHosting(roomName: "\(UIDevice.current.name)'s Room")
+               withAnimation { self.currentView = .WAITING }
+           }
     }
 
     func browseRooms() {
+        mp.stop()
         isHost = false
-        mp.startBrowsingRooms()
-        currentView = .ROOM_LIST
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                self.mp.startBrowsingRooms()
+                withAnimation { self.currentView = .ROOM_LIST }
+            }
     }
     
     func join(room: Room) {
-        currentView = .WAITING
+        withAnimation {
+            currentView = .JOINING
+        }
         mp.invite(room: room)
+        //mp.sendImportant(MPMessage(type: .joining))
     }
     
     private func assignRandomRolesOnce() {
@@ -121,11 +140,13 @@ class AppState {
             guard let self else { return }
             DispatchQueue.main.async {
                 if peers.count == 1 { // 1v1
-                    // Assign random control roles once connected
-                    self.assignRandomRolesOnce()
-
-                    // Move both devices into the game view
-                    self.currentView = .GAME
+                    //Host assigns roles and immediately shows role screen
+                    if self.isHost {
+                        self.assignRandomRolesOnce()
+                        withAnimation {
+                            self.currentView = .ROLE_INTRO
+                        }
+                    }
                 }
             }
         }
@@ -143,20 +164,21 @@ class AppState {
                     // Only host answers
                     guard self.isHost else { return }
 
-                        if !self.hostStartedLevel {
-                            if self.useMockLevel {
-                                self.gameScene.startMockLevelAsHost()
-                                self.hostSeed = 1
-                            } else {
-                                let seed = Int32.random(in: Int32.min...Int32.max)
-                                self.hostSeed = seed
-                                self.gameScene.startLevelAsHost(seed: seed)
-                            }
-                            self.hostStartedLevel = true
+                    if !self.hostStartedLevel {
+                        if self.useMockLevel {
+                            self.gameScene.startMockLevelAsHost()
+                            self.hostSeed = 1
+                        } else {
+                            let seed = Int32.random(in: Int32.min...Int32.max)
+                            self.hostSeed = seed
+                            self.gameScene.startLevelAsHost(seed: seed)
                         }
+                        self.hostStartedLevel = true
+                    }
 
-                        let seedToSend = Double(self.hostSeed ?? 1)
-                        self.mp.send(MPMessage(type: .levelSeed, a: seedToSend))
+                    let seedToSend = Double(self.hostSeed ?? 1)
+                    print("Level to send: \(self.currentLevel == .DESERT ? "Desert" : "City")")
+                    self.mp.send(MPMessage(type: .levelSeed, a: seedToSend, b: Double(self.currentLevel?.rawValue ?? 0)))
 
                 case .levelSeed:
                     let seed = Int32(msg.a ?? 0)
@@ -165,15 +187,28 @@ class AppState {
                     } else {
                         self.gameScene.startLevelAsJoiner(seed: seed)
                     }
+                    
+                    let receivedLevel: Level? = Level(rawValue: Int(msg.b ?? 0.0))
+                    print("Rceived level: \(receivedLevel == .DESERT ? "Desert" : "City")")
+                    if let level = receivedLevel {
+                        self.currentLevel = level
+                    }
+                    self.gameScene.setBackground()
 
                     // IMPORTANT: transition joiner into game
-                    self.currentView = .GAME
+                    withAnimation {
+                        self.currentView = .GAME
+                    }
 
                 case .assignRoles:
                     let hostIsGyro = (msg.a ?? 0) == 1
                     if !self.isHost {
                         self.role = hostIsGyro ? .jump : .gyro
                         self.setupGameRoleFlags()
+
+                        withAnimation {
+                            self.currentView = .ROLE_INTRO
+                        }
                     }
 
                 case .tilt:
@@ -181,8 +216,16 @@ class AppState {
                     self.gameScene.applyRemoteTilt(x)
 
                 case .jump:
-                    let force = CGFloat(msg.a ?? Double(self.gameScene.smallJumpForce))
-                    self.gameScene.applyRemoteJump(force: force)
+                    //let force = CGFloat(msg.a ?? Double(self.gameScene.smallJumpForce))
+                    //self.gameScene.applyRemoteJump(force: force)
+                    if self.isHost {
+                        let successfull = self.gameScene.jump()
+                        if successfull {
+                            self.mp.send(MPMessage(type: .jumpSuccessfull))
+                        }
+                    } else {
+                        self.gameScene.forcedJump()
+                    }
 
                 case .playerState:
                     self.gameScene.applyRemotePlayerState(
@@ -191,20 +234,37 @@ class AppState {
                         vx: CGFloat(msg.c ?? 0),
                         vy: CGFloat(msg.d ?? 0)
                     )
-                case .levelSeed:
-                    // a = seed
-                    let seed = Int32(msg.a ?? 0)
-                    self.gameScene.startLevelAsJoiner(seed: seed)
                 case .time:
                     let time = CGFloat(msg.a ?? 0)
                     self.elapsedTime = time
                 case .finished:
                     self.gameScene.destructLevel()
+                    let finishTime = CGFloat(msg.a ?? 0)
+                    self.elapsedTime = finishTime
+                    self.finishGame()
+                case .cancelMultipeer:
+                    self.cancelMultipeerAndReturnToMenu()
+                case .restartedGame:
                     withAnimation {
-                        self.currentView = .RESULT
+                        self.restartGame()
+                    }
+                case .joining:
+                    withAnimation {
+                        self.currentView = .JOINING
+                    }
+                case .jumpSuccessfull:
+                    self.gameScene.forcedJump()
+                    if self.role == .jump {
+                        HapticManager.tap()
                     }
                 }
-
+            }
+        }
+        
+        mp.onPeerDisconnected = { [weak self] in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.handlePeerDisconnected()
             }
         }
 
@@ -251,15 +311,15 @@ class AppState {
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, error in
             guard let self else { return }
             guard error == nil, let motion else { return }
-
+            
             let g = motion.gravity
-
+            
             // Current interface orientation (iPad can be portrait or landscape)
             let orientation: UIInterfaceOrientation = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
                 .first?
                 .effectiveGeometry.interfaceOrientation ?? .portrait
-
+            
             // Map "tilt left/right" to a consistent axis depending on orientation.
             // (Signs chosen so it feels the same directionally when rotating the device.)
             let raw: Double
@@ -275,11 +335,17 @@ class AppState {
             default:
                 raw = g.x
             }
-
+            
             let sensitivity: Double = 0.35
             let normalized = max(-1.0, min(1.0, raw / sensitivity))
             let x = CGFloat(normalized)
-
+            
+            // to display the device rotation
+            if self.role == .gyro {
+                self.tiltX = x
+                //print("Sensor: \(x)")
+            }
+            
             if self.isHost {
                 self.gameScene.tiltX = x
             } else {
@@ -295,21 +361,25 @@ class AppState {
         motionManager.stopDeviceMotionUpdates()
     }
 
-    /// Called by UI button on the jump device (or could be called anywhere)
     func handleJumpAction() {
         guard role == .jump else { return }
 
         let force = Double(gameScene.smallJumpForce)
 
         if isHost {
-            gameScene.smallJump()
+            let successfull = gameScene.jump()
+            if successfull {
+                mp.send(MPMessage(type: .jump, a: force), mode: .reliable)
+            }
         } else {
+            print("JUMPPPY")
             mp.send(MPMessage(type: .jump, a: force), mode: .reliable)
         }
     }
     
     func startTimer() {
         startTime = CFAbsoluteTimeGetCurrent()
+        elapsedTime = 0.0
         isTimerRunning = true
     }
     
@@ -320,47 +390,154 @@ class AppState {
     }
     
     func stopTimer() {
-        if isTimerRunning {
-            elapsedTime = CFAbsoluteTimeGetCurrent() - startTime
-            isTimerRunning = false
+        isTimerRunning = false
+    }
+    
+    func updateBestTime() {
+        isNewBestTime = false
+        if elapsedTime > 0 && elapsedTime < bestTime {
+            bestTime = elapsedTime
+            isNewBestTime = true
+            print("Best time")
+        } else if bestTime == 0 {
+            bestTime = elapsedTime
+            isNewBestTime = true
+            print("First best time")
         }
     }
     
-    var formattedTime: String {
+    var formattedElapsedTimeWithoutLabel: String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .positional
-        
-        return formatter.string(from: elapsedTime) ?? "00:00"
+        let string = formatter.string(from: elapsedTime) ?? "00:00"
+        return string
     }
-    func cancelMultipeerAndReturnToMenu() {
-        // 1. Stop motion updates safely (gyro device)
-        stopSensors()
+    
+    var formattedElapsedTime: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        var string = formatter.string(from: elapsedTime) ?? "00:00"
+        string += elapsedTime < 60 ? "s" : "min"
+        return string
+    }
+    
+    var formattedBestTime: String {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        var string = formatter.string(from: bestTime) ?? "00:00"
+        string += bestTime < 60 ? "s" : "min"
+        return string
+    }
+    
+    func finishGame() {
+        stopTimer()
+        updateBestTime()
+        withAnimation {
+            self.currentView = .RESULT
+        }
+    }
+    
+    func selectLevel(_ level: Level) {
+        self.currentLevel = level
+        print("Selected level: \(level == .DESERT ? "Desert" : "City")")
+    }
+    
+    func selectLevelRandomly() {
+        self.currentLevel = .DESERT
+    }
+    
+    func restartGame() {
+        // Reset run-specific flags
+        hostStartedLevel = false
+        hostSeed = nil
 
-        // 2. Stop ALL multipeer activity
-        //    (advertising, browsing, session)
+        didAssignRoles = false
+
+        // Reset timer
+        elapsedTime = 0
+        isTimerRunning = false
+        startTime = 0
+
+        // Recreate the scene
+        let newScene = GameScene.newGameScene()
+        newScene.scaleMode = .resizeFill
+        newScene.mp = mp
+        self.gameScene = newScene
+
+        if isHost {
+            assignRandomRolesOnce()
+
+            withAnimation {
+                currentView = .ROLE_INTRO
+            }
+        } else {
+            withAnimation {
+                currentView = .JOINING
+            }
+        }
+    }
+
+    func handlePeerDisconnected() {
+        // Prevent repeated triggers (MCSession can spam state changes)
+        guard !isHandlingDisconnect else { return }
+        isHandlingDisconnect = true
+
+        // If we're already in menu-ish screens, just clean up and go menu.
+        if currentView == .MAIN_MENU || currentView == .PLAY_MENU || currentView == .ROOM_LIST || currentView == .LEVEL_SELECTION {
+            cancelMultipeerAndReturnToMenu()
+            isHandlingDisconnect = false
+            return
+        }
+
+        // Show "Disconnected" screen
+        withAnimation {
+            currentView = .DISCONNECTED
+        }
+
+        // After 5s, reset everything and return to menu
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self else { return }
+            self.cancelMultipeerAndReturnToMenu()
+            self.isHandlingDisconnect = false
+        }
+    }
+
+
+    func cancelMultipeerAndReturnToMenu() {
+        stopTimer()
+        elapsedTime = 0.0
+
+        stopSensors()
         mp.stop()
 
-        // 3. Reset multiplayer / room state
+        //Reset multiplayer / run flags
         availableRooms.removeAll()
         hostSeed = nil
         hostStartedLevel = false
         hasSentHandshake = false
 
-        // 4. Reset role to a safe default
-        //    (actual role will be set again when creating/joining)
+        didAssignRoles = false
+        isHandlingDisconnect = false
+        isHost = false
+
+        // Optional: also reset level selection per your design
+        // currentLevel = .DESERT
+
         role = (UIDevice.current.userInterfaceIdiom == .pad) ? .jump : .gyro
         setupGameRoleFlags()
 
-        // 5. (Optional but recommended) reset scene-side MP state
         gameScene.isRemoteViewOnly = (role == .gyro)
         gameScene.tiltX = 0
+        gameScene.destructLevel()
 
-        // 6. Navigate back to main menu
         withAnimation {
             currentView = .MAIN_MENU
         }
     }
+
 
 
 }

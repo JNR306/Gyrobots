@@ -1,55 +1,63 @@
 //
-//  Waiting.swift
+//  Disconnected.swift
 //  Gyrobots
 //
-//  Created by Mert on 30.01.2026.
+//  Created by Mert on 31.01.2026.
 //
-
 
 import SwiftUI
 import SpriteKit
 internal import Combine
 
-struct Waiting: View {
+struct Disconnected: View {
 
     @Environment(AppState.self) private var appState
-    
+
     @State private var dotCount = 0
     let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack {
             Spacer()
+
             HStack {
-                Image(.plus)
+                Image(.warning)
                     .resizable()
-                    .frame(width: 28, height: 28)
-                    .offset(y: -1)
+                    .frame(width: 33, height: 33)
                     .padding(.trailing, 2)
-                Text("New Game")
+                Text("Disconnected")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
                     .foregroundStyle(.white)
             }
             .padding()
+
             Spacer()
+
             ZStack(alignment: .leading) {
-                Text("Waiting for other player...")
+                Text("The other person has disconnected, sending you to main menu...")
                     .font(.custom("AvenirNext-Regular", size: 20, relativeTo: .largeTitle))
                     .opacity(0.0)
-                Text("Waiting for other player\(String(repeating: ".", count: dotCount))")
+
+                Text("The other person has disconnected, sending you to main menu\(String(repeating: ".", count: dotCount))")
                     .font(.custom("AvenirNext-Regular", size: 20, relativeTo: .largeTitle))
                     .foregroundStyle(.white)
             }
             .onReceive(timer) { _ in
                 withAnimation {
-                    if dotCount < 3 {
-                        dotCount += 1
-                    } else {
-                        dotCount = 0
+                    dotCount = (dotCount < 3) ? (dotCount + 1) : 0
+                }
+            }
+            .onAppear {
+                // Backup (in case handler isn't called for some reason)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                    withAnimation {
+                        appState.cancelMultipeerAndReturnToMenu()
                     }
                 }
             }
+
             Spacer()
+
             Button {
                 HapticManager.tap()
                 withAnimation {
@@ -57,16 +65,18 @@ struct Waiting: View {
                 }
             } label: {
                 HStack {
-                    Image(.backArrow)
+                    Image(.home)
                         .resizable()
-                        .frame(width: 15, height: 15)
-                    Text("Back")
+                        .frame(width: 16, height: 16)
+                        .offset(y: -1)
+                    Text("Main Menu")
                         .font(.custom("AvenirNext-Medium", size: 20, relativeTo: .largeTitle))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                 }
                 .padding()
             }
+
             Spacer()
         }
     }

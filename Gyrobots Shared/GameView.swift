@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SpriteKit
+import MultipeerConnectivity
 
 struct GameView: View {
     
@@ -19,19 +20,22 @@ struct GameView: View {
                 .ignoresSafeArea()
         }
         .onAppear {
-            appState.startGameIfNeeded()
             appState.startSensors()
             appState.startGameIfNeeded()
+            AppDelegate.lockOrientation()
         }
         .onDisappear {
             appState.stopSensors()
+            AppDelegate.unlockOrientation()
         }
+        /*
         .overlay(alignment: .topLeading) { //TEMPORARY - ONLY FOR DEVELOPMENT
             Text("isHost: \(appState.isHost ? "YES" : "NO")  role: \(appState.role == .gyro ? "GYRO" : "JUMP")")
                 .padding(8)
                 .background(.black.opacity(0.6))
                 .foregroundStyle(.white)
         }
+         */
     }
 }
 
@@ -43,13 +47,24 @@ struct GameOverlay: View {
         VStack {
             HStack {
                 Button {
-                    appState.cancelMultipeerAndReturnToMenu()
+                    HapticManager.tap()
+                    if !appState.mp.session.connectedPeers.isEmpty {
+                            appState.mp.sendImportant(MPMessage(type: .cancelMultipeer))
+
+                            // Give the message a moment to flush
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                appState.cancelMultipeerAndReturnToMenu()
+                            }
+                        } else {
+                            appState.cancelMultipeerAndReturnToMenu()
+                        }
                 } label: {
-                    Text("EXIT")
-                        .frame(width: 100, height: 100)
+                    Image(.closeButton)
+                        .resizable()
+                        .frame(width: 40, height: 40)
                 }
                 Spacer()
-                Text("\(appState.formattedTime)")
+                Text("\(appState.formattedElapsedTimeWithoutLabel)")
                     .font(.custom("AvenirNext-Bold", size: 40, relativeTo: .largeTitle))
                     .monospacedDigit()
                     .foregroundStyle(.terrain)
@@ -61,22 +76,61 @@ struct GameOverlay: View {
             .padding()
             Spacer()
             if appState.role == .jump {
+                let buttonSize = UIDevice.current.userInterfaceIdiom == .pad ? CGFloat(100) : CGFloat(80)
                 HStack {
+                    Button {
+                        //collect
+                    } label: {
+                        Image(.collectButton)
+                            .resizable()
+                            .frame(width: buttonSize, height: buttonSize)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .frame(width: buttonSize, height: buttonSize)
+                    .padding()
                     Spacer()
                     Button {
                         appState.handleJumpAction()
                     } label: {
-                        Text("JUMP")
-                            .foregroundStyle(.white)
-                            .frame(width: 100, height: 100)
+                        Image(.jumpButton)
+                            .resizable()
+                            .frame(width: buttonSize, height: buttonSize)
                     }
                     .buttonStyle(PlainButtonStyle())
-                    .frame(width: 100, height: 100)
-                    //.border(.red, width: 10)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .padding()
                 }
             }
         }
-        //.border(.yellow, width: 10)
+    }
+}
+
+struct TiltOverlay: View {
+    
+    @Environment(AppState.self) private var appState
+    
+    var body: some View {
+        GeometryReader { geo in
+            VStack {
+                Spacer()
+                if appState.role == .gyro {
+                    Image(appState.tiltX > appState.gameScene.tiltDeadzone ? .rightMovementIndicator : appState.tiltX < -appState.gameScene.tiltDeadzone ? .leftMovementIndicator : .noMovementIndicator)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: UIDevice.current.userInterfaceIdiom == .pad ? 50 : 30)
+                        .padding(.bottom, UIDevice.current.userInterfaceIdiom == .pad ? 10 : 5)
+                    Rectangle()
+                        .foregroundStyle(.darkHighlight)
+                        .frame(width: geo.size.width, height: 10)
+                        .overlay {
+                            Rectangle()
+                                .foregroundStyle(.white)
+                                .frame(width: 100, height: 10)
+                                .offset(x: appState.tiltX * (geo.size.width - 100) / 2)
+                        }
+                }
+            }
+        }
     }
 }
 
