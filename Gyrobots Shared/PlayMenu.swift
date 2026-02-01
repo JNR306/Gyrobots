@@ -26,6 +26,7 @@ struct PlayMenu: View {
                 Spacer()
                 Button {
                     HapticManager.tap()
+                    SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                     withAnimation {
                         appState.locate()
                     }
@@ -37,6 +38,7 @@ struct PlayMenu: View {
                 }
                 Button {
                     HapticManager.tap()
+                    SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                     withAnimation {
                         appState.browseRooms()
                     }
@@ -69,6 +71,7 @@ struct PlayMenu: View {
             Spacer()
             Button {
                 HapticManager.tap()
+                SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                 showManualPicker = true
             } label: {
                 Text("Choose Location (Demo)")
@@ -78,6 +81,9 @@ struct PlayMenu: View {
                     .padding(.horizontal, 16)
                     .background(.white.opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
             }
             .sheet(isPresented: $showManualPicker) {
                 ManualLocationPickerView(

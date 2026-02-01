@@ -68,6 +68,9 @@ struct Waiting: View {
                 .padding()
             }
             Spacer()
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
+            }
         }
     }
 }

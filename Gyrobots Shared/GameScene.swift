@@ -117,6 +117,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         generateTerrain()
         setupPlayer()
         
+        startLevelMusic()
+        
         print("Started level as host")
 
         self.physicsWorld.contactDelegate = self
@@ -128,6 +130,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         configureLevel(seed: seed)
         generateTerrain()
         setupPlayer()
+        
+        startLevelMusic()
         
         print("Started level as joiner")
 
@@ -824,6 +828,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                             // Remove bolt
                             child.removeFromParent()
                             applySpeedBoost()
+                            SoundManager.shared.playSFX("01_bleep.wav", volume: 0.7)
                             HapticManager.collect()
                             
                             // Disable the item
@@ -923,6 +928,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             mp?.send(MPMessage(type: .time, a: AppState.shared.elapsedTime))
         }
     }
+    
+    //MARK: - Level Music
+    private func startLevelMusic() {
+        SoundManager.shared.stopMusic()
+        
+        switch AppState.shared.currentLevel {
+        case .CITY:
+            SoundManager.shared.playMusic("city-loop.mp3", volume: 0.45)
+        case .FOREST:
+            SoundManager.shared.playMusic("forest.mp3", volume: 0.45)
+        case .DESERT:
+            SoundManager.shared.playMusic("Cavernous_Desert02.mp3", volume: 0.45)
+        default:
+            break
+        }
+    }
 
     // MARK: - Actions
 
@@ -948,6 +969,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     
     func forcedJump() {
         guard isRemoteViewOnly else { return }
+        SoundManager.shared.playSFX("jump_08.wav", volume: 0.9)
         player.physicsBody?.velocity.dy = 0
         player.physicsBody?.applyImpulse(CGVector(dx: 0, dy: smallJumpForce))
     }
@@ -956,6 +978,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     func jump() -> Bool {
         guard !isRemoteViewOnly else { return false }
         if isGrounded() {
+            SoundManager.shared.playSFX("jump_08.wav", volume: 0.9)
             if AppState.shared.role == .jump {
                 HapticManager.tap()
             }

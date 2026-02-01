@@ -24,9 +24,24 @@ struct RoleIntro: View {
             return "You are the Runner. Tilt your phone to move left and right using the gyroscope."
         }
     }
+    
+    private var levelText: String {
+        if let level = appState.currentLevel {
+            return "Level: \(level.displayName)"
+        } else {
+            return "Level: —"
+        }
+    }
 
     var body: some View {
         VStack {
+            Spacer()
+            
+            Text(levelText)
+                .font(.custom("AvenirNext-Medium", size: 18, relativeTo: .largeTitle))
+                .foregroundStyle(.white.opacity(0.9))
+                .padding(.top, 12)
+
             Spacer()
 
             HStack {
@@ -50,6 +65,9 @@ struct RoleIntro: View {
                 .padding(.horizontal, 30)
 
             Spacer()
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
+            }
         }
         .onAppear {
             // Auto-continue after 5 seconds
@@ -58,6 +76,16 @@ struct RoleIntro: View {
                     appState.currentView = .GAME
                 }
             }
+        }
+    }
+}
+
+private extension Level {
+    var displayName: String {
+        switch self {
+        case .DESERT: return "Desert"
+        case .CITY: return "City"
+        case .FOREST: return "Forest"
         }
     }
 }

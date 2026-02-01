@@ -57,6 +57,9 @@ struct Disconnected: View {
             }
 
             Spacer()
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
+            }
             /*
             Button {
                 HapticManager.tap()
