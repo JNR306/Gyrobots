@@ -822,7 +822,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             
             // scale
-            let targetH: CGFloat = isBush ? 40.0 : 200.0
+            let targetH: CGFloat = isBush && (AppState.shared.currentLevel == .DESERT || AppState.shared.currentLevel == .FOREST) ? 40.0 : 200.0
             if let tex = bgNode.texture {
                 let ratio = tex.size().width / tex.size().height
                 bgNode.size = CGSize(width: targetH * ratio, height: targetH)
