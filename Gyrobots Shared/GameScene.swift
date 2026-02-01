@@ -72,6 +72,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     var backgroundLayer2: SKNode!
     
     var generatedItemsCount = 0
+    
+    var allTerrainNodes: [SKNode] = []
+    var allSlopeStarts: [(x: CGFloat, up: Bool)] = [] // left x coordinate of all slopes
 
     // MARK: - Scene loading
     class func newGameScene() -> GameScene {
@@ -82,7 +85,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     override func didMove(to view: SKView) {
         //view.showsPhysics = true
-        setEmptyBackground()
+        setBackground()
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
         setupCamera()
     }
@@ -284,8 +287,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         // generate strips
-        createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 150.0)
-        createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 250.0)
+        createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 50.0)
+        createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 150.0)
     }
 
     func setupPlayer() {
@@ -348,6 +351,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func destructLevel() {
+        allTerrainNodes = []
         player?.removeFromParent()
         gameCamera?.removeFromParent()
         terrainNode?.removeFromParent()
@@ -385,14 +389,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         addChild(obstaclesNode)
         
         let totalWidth = rightFixedX - leftFixedX
-        let fillRect = CGRect(x: leftFixedX, y: 0, width: totalWidth, height: 100)
+        let fillRect = CGRect(x: leftFixedX, y: -100, width: totalWidth, height: 100)
         
         let valleyBackground = SKShapeNode(rect: fillRect)
         
-        if let terrainColor = SKColor(named: "TerrainLight") {
-            valleyBackground.fillColor = terrainColor
-        } else {
-            valleyBackground.fillColor = .lightGray
+        switch AppState.shared.currentLevel {
+        case .DESERT:
+            valleyBackground.fillColor = SKColor(named: "FloorDesert") ?? .white
+        case .CITY:
+            valleyBackground.fillColor = SKColor(named: "FloorCity") ?? .white
+        case .FOREST:
+            valleyBackground.fillColor = SKColor(named: "FloorForest") ?? .white
+        default:
+            valleyBackground.fillColor = SKColor(named: "TerrainLight") ?? .white
         }
         
         valleyBackground.strokeColor = .clear
@@ -408,36 +417,99 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         path.addLine(to: CGPoint(x: startX-1000, y: 0))
         
         let totalSegments = Int((endX-startX))/500
-        var isTerrainHigh: [Bool] = Array(repeating: false, count: totalSegments)
+        var isTerrainLow: [Bool] = Array(repeating: false, count: totalSegments)
         
         // caculate heights
-        for i in 1..<isTerrainHigh.count {
+        for i in 1..<isTerrainLow.count {
             if let rng = rng {
                 // prevent the same object from spawning too many times ina row
-                if i >= 2 && !isTerrainHigh[i-1] && !isTerrainHigh[i-2] {
-                    isTerrainHigh[i] = true
+                if i >= 2 && !isTerrainLow[i-1] && !isTerrainLow[i-2] {
+                    isTerrainLow[i] = true
                 } else {
-                    isTerrainHigh[i] = rng.nextInt(upperBound: 2) == 0
+                    isTerrainLow[i] = rng.nextInt(upperBound: 2) == 0
                 }
             } else {
-                isTerrainHigh[i] = Bool.random()
+                isTerrainLow[i] = Bool.random()
             }
         }
         
+        print(isTerrainLow)
+        
         // path and obstacles
-        for i in 0..<isTerrainHigh.count {
+        for i in 0..<isTerrainLow.count {
             let chunkX = CGFloat(i * 500)
-            let chunkY: CGFloat = isTerrainHigh[i] ? 100 : 0
+            let chunkY: CGFloat = isTerrainLow[i] ? -100 : 0
             
-            // drawing
+            // drawing cliff
             if i == 0 {
-                path.addLine(to: CGPoint(x: chunkX, y: 0))
+                if chunkY == 0 {
+                    //terrain stays at the current level
+                    path.addLine(to: CGPoint(x: chunkX + 100, y: chunkY))
+                } else {
+                    //terrain goes down
+                    path.addLine(to: CGPoint(x: chunkX, y: 0))
+                    path.addLine(to: CGPoint(x: chunkX, y: -100))
+                    addTriangle(isGoingUp: false, leftX: chunkX)
+                }
             } else {
-                let prevY: CGFloat = isTerrainHigh[i-1] ? 100 : 0
-                path.addLine(to: CGPoint(x: chunkX, y: prevY))
+                let prevY: CGFloat = isTerrainLow[i-1] ? -100 : 0
+                if chunkY == prevY {
+                    //terrain stays at the current level
+                    path.addLine(to: CGPoint(x: chunkX + 100, y: chunkY))
+                } else {
+                    if chunkY == 0 {
+                        //terrain goes up
+                        path.addLine(to: CGPoint(x: chunkX, y: prevY))
+                        path.addLine(to: CGPoint(x: chunkX + 100, y: -100))
+                        addTriangle(isGoingUp: true, leftX: chunkX)
+                    } else {
+                        //terrain goes down
+                        path.addLine(to: CGPoint(x: chunkX, y: prevY))
+                        path.addLine(to: CGPoint(x: chunkX, y: -100))
+                        addTriangle(isGoingUp: false, leftX: chunkX)
+                    }
+                    
+                }
             }
-            // slope
             path.addLine(to: CGPoint(x: chunkX + 100, y: chunkY))
+            
+            // adding the real hitbox slope and the fake texture
+            func addTriangle(isGoingUp: Bool, leftX: CGFloat) {
+                allSlopeStarts.append((x: leftX, up: isGoingUp))
+                
+                let path = CGMutablePath()
+                path.move(to: CGPoint(x: leftX, y: isGoingUp ? -100 : 0))
+                path.addLine(to: CGPoint(x: leftX + 100, y: isGoingUp ? 0 : -100))
+                path.addLine(to: CGPoint(x: isGoingUp ? leftX + 100 : leftX, y: -100))
+                path.closeSubpath()
+                
+                let triangle = SKShapeNode(path: path)
+                triangle.fillColor = .clear
+                triangle.strokeColor = .clear
+                
+                triangle.physicsBody = SKPhysicsBody(edgeLoopFrom: path)
+                triangle.physicsBody?.isDynamic = false
+                triangle.physicsBody?.friction = 0.5
+                triangle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
+                
+                allTerrainNodes.append(triangle)
+                
+                let isCity = AppState.shared.currentLevel == .CITY
+                var imageName = ""
+
+                if isGoingUp {
+                    imageName = isCity ? "SlopeStairsUp" : "SlopeUp"
+                } else {
+                    imageName = isCity ? "SlopeStairsDown" : "SlopeDown"
+                }
+
+                let slope = SKSpriteNode(imageNamed: imageName)
+                slope.size = CGSize(width: 100, height: 100)
+
+                slope.position = CGPoint(x: leftX + 50, y: -50)
+
+                allTerrainNodes.append(slope)
+            }
             
             let flatStart: CGFloat = 130
             let flatRange: Int = 340
@@ -458,9 +530,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         
-        
         // close path
-        path.addLine(to: CGPoint(x: endX+1000, y: isTerrainHigh.last ?? false ? 100 : 0))
+        path.addLine(to: CGPoint(x: endX+1000, y: isTerrainLow.last ?? false ? -100 : 0))
         path.addLine(to: CGPoint(x: endX+1000, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
@@ -500,6 +571,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         terrainNode.physicsBody?.isDynamic = false
         terrainNode.physicsBody?.friction = 0.5
         terrainNode.physicsBody?.categoryBitMask = PhysicsCategory.terrain
+        
+        for node in allTerrainNodes {
+            terrainNode?.addChild(node)
+        }
         
         addChild(terrainNode)
         
@@ -568,7 +643,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let size = CGSize(width: 94, height: 103)
             
             // Bolt
-            let boltSprite = SKSpriteNode(imageNamed: "Bolt")
+            let boltSprite = AppState.shared.currentLevel == .DESERT ? SKSpriteNode(imageNamed: "DesertBolt") : AppState.shared.currentLevel == .CITY ? SKSpriteNode(imageNamed: "CityBolt") : SKSpriteNode(imageNamed: "ForestBolt")
             boltSprite.name = "bolt\(generatedItemsCount)"
             boltSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
             boltSprite.zPosition = 2
@@ -678,7 +753,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             fgNode.position = CGPoint(x: x, y: groundY + fgNode.size.height / 2)
             fgNode.zPosition = -1
             
-            let hitboxSize = CGSize(width: fgNode.size.width * 0.1, height: fgNode.size.height * 0.85)
+            let hitboxSize = CGSize(width: fgNode.size.width * 0.3, height: fgNode.size.height * 0.85)
             
             fgNode.physicsBody = SKPhysicsBody(
                 rectangleOf: hitboxSize,

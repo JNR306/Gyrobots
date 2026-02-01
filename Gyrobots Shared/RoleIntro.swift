@@ -50,26 +50,6 @@ struct RoleIntro: View {
                 .padding(.horizontal, 30)
 
             Spacer()
-            /*
-            Button {
-                HapticManager.tap()
-                withAnimation {
-                    appState.cancelMultipeerAndReturnToMenu()
-                }
-            } label: {
-                HStack {
-                    Image(.backArrow)
-                        .resizable()
-                        .frame(width: 15, height: 15)
-                    Text("Back")
-                        .font(.custom("AvenirNext-Medium", size: 20, relativeTo: .largeTitle))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                }
-                .padding()
-            }
-            */
-            Spacer()
         }
         .onAppear {
             // Auto-continue after 5 seconds

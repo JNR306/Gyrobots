@@ -46,6 +46,8 @@ final class OverpassManager {
             return decoded
         } catch {
             print(rawString)
+            print("OVERPASS API DID NOT RESPOND")
+            AppState.shared.cancelMultipeerAndReturnToMenu()
             throw error
         }
     }
@@ -71,36 +73,36 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
     var onResultFound: (@MainActor (OSMResponse?) -> Void)?
     
     func start(override: CLLocationCoordinate2D? = nil) {
-            // Manual demo path: bypass GPS completely
-            if let override {
-                // Prevent overlapping calls
-                guard !isFetching else { return }
-                isFetching = true
-
-                Task {
-                    await self.fetchAndSelectLevel(lat: override.latitude, lon: override.longitude)
-                }
-                return
-            }
-
-            // Normal GPS path (unchanged)
-            locationManager.delegate = self
-            locationManager.requestWhenInUseAuthorization()
-            locationManager.startUpdatingLocation()
-        }
-    
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-            guard let location = locations.last, !isFetching else { return }
+        // Manual demo path: bypass GPS completely
+        if let override {
+            // Prevent overlapping calls
+            guard !isFetching else { return }
             isFetching = true
-            manager.stopUpdatingLocation()
 
             Task {
-                await self.fetchAndSelectLevel(
-                    lat: location.coordinate.latitude,
-                    lon: location.coordinate.longitude
-                )
+                await self.fetchAndSelectLevel(lat: override.latitude, lon: override.longitude)
             }
+            return
         }
+
+        // Normal GPS path (unchanged)
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.startUpdatingLocation()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last, !isFetching else { return }
+        isFetching = true
+        manager.stopUpdatingLocation()
+
+        Task {
+            await self.fetchAndSelectLevel(
+                lat: location.coordinate.latitude,
+                lon: location.coordinate.longitude
+            )
+        }
+    }
 
     @MainActor
     private func fetchAndSelectLevel(lat: Double, lon: Double) async {
@@ -142,6 +144,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
             onResultFound?(response)
         } catch {
             print("Overpass Error: \(error)")
+            AppState.shared.cancelMultipeerAndReturnToMenu()
             onResultFound?(nil)
         }
 
