@@ -183,6 +183,7 @@ class AppState {
                         } else {
                             let seed = Int32.random(in: Int32.min...Int32.max)
                             self.hostSeed = seed
+                            self.gameScene.setEmptyBackground()
                             self.gameScene.startLevelAsHost(seed: seed)
                         }
                         self.hostStartedLevel = true
@@ -194,11 +195,6 @@ class AppState {
 
                 case .levelSeed:
                     let seed = Int32(msg.a ?? 0)
-                    if self.useMockLevel {
-                        self.gameScene.startMockLevelAsJoiner()
-                    } else {
-                        self.gameScene.startLevelAsJoiner(seed: seed)
-                    }
                     
                     let receivedLevel: Level? = Level(rawValue: Int(msg.b ?? 0.0))
                     print("Rceived level: \(receivedLevel == .DESERT ? "Desert" : "City")")
@@ -206,7 +202,12 @@ class AppState {
                         self.currentLevel = level
                     }
                     self.gameScene.setBackground()
-                    //self.gameScene.setupBackground()
+                    
+                    if self.useMockLevel {
+                        self.gameScene.startMockLevelAsJoiner()
+                    } else {
+                        self.gameScene.startLevelAsJoiner(seed: seed)
+                    }
 
                     // IMPORTANT: transition joiner into game
                     withAnimation {
@@ -308,6 +309,7 @@ class AppState {
                 } else {
                     let seed = Int32.random(in: Int32.min...Int32.max)
                     hostSeed = seed
+                    gameScene.setEmptyBackground()
                     gameScene.startLevelAsHost(seed: seed)
                     mp.send(MPMessage(type: .requestLevel))
                 }

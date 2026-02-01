@@ -56,7 +56,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - State send throttling (host -> joiner)
     private var lastStateSendTime: TimeInterval = 0
-    private let stateSendInterval: TimeInterval = 1.0 / 25.0 // 30 Hz
+    private let stateSendInterval: TimeInterval = 1.0 / 30.0 // 30 Hz
     
     // MARK: - Timer send throttling (host -> joiner)
     private var lastTimerSendTime: TimeInterval = 0
@@ -82,10 +82,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     override func didMove(to view: SKView) {
         //view.showsPhysics = true
-        setBackground()
-        
+        setEmptyBackground()
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
-        setupBackground()
         setupCamera()
     }
     
@@ -101,6 +99,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .none:
             self.backgroundColor = .white
         }
+    }
+    
+    func setEmptyBackground() {
+        self.backgroundColor = SKColor(named: "Terrain") ?? .white
     }
 
     // MARK: - Level start (seeded)
@@ -265,26 +267,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // helper for tiling images
         func createStrip(imageName: String, parentNode: SKNode, factor: CGFloat, yOffset: CGFloat) {
-                let tempSprite = SKSpriteNode(imageNamed: imageName)
-                let width = tempSprite.size.width
-                
-                // how many sprites to cover whole level
-                let numberOfTiles = Int((rightFixedX - leftFixedX) / width) + 5
-                
-                for i in 0..<numberOfTiles {
-                    let sprite = SKSpriteNode(imageNamed: imageName)
-                    sprite.anchorPoint = CGPoint(x: 0, y: 0.5)
-                    sprite.position = CGPoint(x: leftFixedX + CGFloat(i) * width, y: yOffset)
-                     sprite.size = CGSize(width: width, height: self.size.height)
-                    
-                    parentNode.addChild(sprite)
-                }
-            }
+            let tempSprite = SKSpriteNode(imageNamed: imageName)
+            let width = tempSprite.size.width
             
-            // generate strips
-            createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 150.0)
-            createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 250.0)
+            // how many sprites to cover whole level
+            let numberOfTiles = Int((rightFixedX - leftFixedX) / width) + 5
+            
+            for i in 0..<numberOfTiles {
+                let sprite = SKSpriteNode(imageNamed: imageName)
+                sprite.anchorPoint = CGPoint(x: 0, y: 0.5)
+                sprite.position = CGPoint(x: leftFixedX + CGFloat(i) * width, y: yOffset)
+                 sprite.size = CGSize(width: width, height: self.size.height)
+                
+                parentNode.addChild(sprite)
+            }
         }
+        
+        // generate strips
+        createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 150.0)
+        createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 250.0)
+    }
 
     func setupPlayer() {
         // remove an existing player if were restarting/reentering
@@ -355,6 +357,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         backgroundLayer2?.removeFromParent()
         
         bgDecorationsNode?.removeFromParent()
+        
+        print("destructed everything")
     }
 
     // MARK: - Procedural Terrain
@@ -367,6 +371,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     let bottomFixedY: CGFloat = -2000
     
     func generateTerrain() {
+        setBackground()
+        setupBackground()
+        
         bgDecorationsNode = SKNode()
         bgDecorationsNode.zPosition = -5
         addChild(bgDecorationsNode)
@@ -649,48 +656,58 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func spawnDecoration(at x: CGFloat, groundY: CGFloat) {
-            // get asset
-            var assetPrefix = "City"
-            switch AppState.shared.currentLevel {
-            case .DESERT: assetPrefix = "Beach"
-            case .FOREST: assetPrefix = "Forest"
-            default:      assetPrefix = "City"
-            }   
+        // get asset
+        var assetPrefix = "City"
+        switch AppState.shared.currentLevel {
+        case .DESERT: assetPrefix = "Beach"
+        case .FOREST: assetPrefix = "Forest"
+        default:      assetPrefix = "City"
+        }
 
-            // foreground
-            if let rng = rng, rng.nextInt(upperBound: 3) == 0 {
-                let fgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectFG")
-                
-                //scaling
-                let targetH: CGFloat = 250.0
-                if let tex = fgNode.texture {
-                    let ratio = tex.size().width / tex.size().height
-                    fgNode.size = CGSize(width: targetH * ratio, height: targetH)
-                }
-                
-                fgNode.position = CGPoint(x: x, y: groundY + fgNode.size.height / 2)
-                fgNode.zPosition = -1
-                
-                obstaclesNode.addChild(fgNode)
+        // foreground
+        if let rng = rng, rng.nextInt(upperBound: 3) == 0 {
+            let fgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectFG")
+            
+            //scaling
+            let targetH: CGFloat = 250.0
+            if let tex = fgNode.texture {
+                let ratio = tex.size().width / tex.size().height
+                fgNode.size = CGSize(width: targetH * ratio, height: targetH)
             }
             
-            // background
-            if let rng = rng, rng.nextInt(upperBound: 2) == 0 {
-                let bgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectBG")
-                
-                // scale
-                let targetH: CGFloat = 200.0
-                if let tex = bgNode.texture {
-                    let ratio = tex.size().width / tex.size().height
-                    bgNode.size = CGSize(width: targetH * ratio, height: targetH)
-                }
-                
-                bgNode.position = CGPoint(x: x, y: groundY + bgNode.size.height / 2)
-                bgNode.zPosition = -2
-                
-                bgDecorationsNode.addChild(bgNode)
-            }
+            fgNode.position = CGPoint(x: x, y: groundY + fgNode.size.height / 2)
+            fgNode.zPosition = -1
+            
+            let hitboxSize = CGSize(width: fgNode.size.width * 0.1, height: fgNode.size.height * 0.85)
+            
+            fgNode.physicsBody = SKPhysicsBody(
+                rectangleOf: hitboxSize,
+                center: CGPoint(x: 0, y: -hitboxSize.height * 0.7 / 2)
+            )
+            fgNode.physicsBody?.isDynamic = false
+            fgNode.physicsBody?.friction = 0.5
+            fgNode.physicsBody?.categoryBitMask = PhysicsCategory.terrain
+            
+            obstaclesNode.addChild(fgNode)
         }
+        
+        // background
+        if let rng = rng, rng.nextInt(upperBound: 2) == 0 {
+            let bgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectBG")
+            
+            // scale
+            let targetH: CGFloat = 200.0
+            if let tex = bgNode.texture {
+                let ratio = tex.size().width / tex.size().height
+                bgNode.size = CGSize(width: targetH * ratio, height: targetH)
+            }
+            
+            bgNode.position = CGPoint(x: x, y: groundY + bgNode.size.height / 2)
+            bgNode.zPosition = -2
+            
+            bgDecorationsNode.addChild(bgNode)
+        }
+    }
     
     func removeItem(id: Int) {
         let targetName = "bolt\(id)"
