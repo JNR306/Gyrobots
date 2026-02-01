@@ -454,7 +454,7 @@ class AppState {
     
     func selectLevel(_ level: Level) {
         self.currentLevel = level
-        print("Selected level: \(level == .DESERT ? "Desert" : "City")")
+        print("Selected level: \(level == .DESERT ? "Desert" : level == .CITY ? "City" : "Forest")")
     }
     
     func selectLevelRandomly() {

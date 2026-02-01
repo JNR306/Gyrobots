@@ -98,7 +98,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
                         return ["park", "nature_reserve"].contains(leisure) || ["forest", "park", "grass"].contains(landuse)
                     }) {
                         print("Priority 1: Inside a Park/Forest - \(nature.tags?["name"] ?? "Unnamed")")
-                        AppState.shared.currentLevel = .FOREST
+                        AppState.shared.selectLevel(.FOREST)
                     }
                     // 2. Otherwise, check for Deserts/Beaches
                     else if let desert = elements.first(where: { element in
@@ -106,18 +106,18 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
                         return ["sand", "beach", "desert", "dune", "heath"].contains(natural)
                     }) {
                         print("Priority 2: Inside a Desert/Beach - \(desert.tags?["name"] ?? "Unnamed")")
-                        AppState.shared.currentLevel = .DESERT
+                        AppState.shared.selectLevel(.DESERT)
                     }
                     // 3. Finally, check for the City
                     else if let city = elements.first(where: { element in
                         element.tags?["boundary"] == "administrative" && element.tags?["admin_level"] == "8"
                     }) {
                         print("Priority 3: Inside City - \(city.tags?["name"] ?? "Unknown")")
-                        AppState.shared.currentLevel = .CITY
+                        AppState.shared.selectLevel(.CITY)
                     }
                     else {
                         print("No matching criteria found in elements.")
-                        AppState.shared.currentLevel = Level(rawValue: Int.random(in: 1...3))
+                        AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
                     }
                     
                     AppState.shared.wasLevelSetByLocation = true
