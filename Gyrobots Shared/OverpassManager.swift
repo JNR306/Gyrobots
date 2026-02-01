@@ -47,7 +47,9 @@ final class OverpassManager {
         } catch {
             print(rawString)
             print("OVERPASS API DID NOT RESPOND")
-            AppState.shared.cancelMultipeerAndReturnToMenu()
+            //AppState.shared.cancelMultipeerAndReturnToMenu()
+            //we have no other option than to give up if the api does not want to answer for some reason
+            AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
             throw error
         }
     }
@@ -110,7 +112,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
             let response = try await service.getNearestElement(lat: lat, lon: lon)
             let elements = response.elements
 
-            // 1. Check for Nature/Parks
+            // Check for Nature/Parks
             if let nature = elements.first(where: { element in
                 let leisure = element.tags?["leisure"] ?? ""
                 let landuse = element.tags?["landuse"] ?? ""
@@ -120,7 +122,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
                 print("Priority 1: Inside a Park/Forest - \(nature.tags?["name"] ?? "Unnamed")")
                 AppState.shared.selectLevel(.FOREST)
             }
-            // 2. Otherwise, check for Deserts/Beaches
+            // Otherwise, check for Deserts/Beaches
             else if let desert = elements.first(where: { element in
                 let natural = element.tags?["natural"] ?? ""
                 return ["sand", "beach", "desert", "dune", "heath"].contains(natural)
@@ -128,7 +130,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
                 print("Priority 2: Inside a Desert/Beach - \(desert.tags?["name"] ?? "Unnamed")")
                 AppState.shared.selectLevel(.DESERT)
             }
-            // 3. Finally, check for the City
+            // Check for the City
             else if let city = elements.first(where: { element in
                 element.tags?["boundary"] == "administrative" && element.tags?["admin_level"] == "8"
             }) {
@@ -144,7 +146,9 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
             onResultFound?(response)
         } catch {
             print("Overpass Error: \(error)")
-            AppState.shared.cancelMultipeerAndReturnToMenu()
+            //AppState.shared.cancelMultipeerAndReturnToMenu()
+            //we have no other option than to give up if the api does not want to answer for some reason
+            AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
             onResultFound?(nil)
         }
 

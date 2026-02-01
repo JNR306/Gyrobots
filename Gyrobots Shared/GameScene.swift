@@ -526,11 +526,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 spawnRandomObstacle(at: spawnX, groundY: chunkY)
             }
             
-            // attempt to spawn deco
-            let randomDecoOffset = CGFloat(rng?.nextInt(upperBound: flatRange) ?? Int.random(in: 0..<flatRange))
-            let decoX = chunkX + flatStart + randomDecoOffset
-            
-            spawnDecoration(at: decoX, groundY: chunkY)
+            // attempt to spawn deco 3 times
+            for _ in 0..<3 {
+                // 80% chance
+                if (rng?.nextInt(upperBound: 5) ?? Int.random(in: 0...4)) < 4 {
+                    
+                    let randomDecoOffset = CGFloat(rng?.nextInt(upperBound: flatRange) ?? Int.random(in: 0..<flatRange))
+                    let decoX = chunkX + flatStart + randomDecoOffset
+                    
+                    spawnDecoration(at: decoX, groundY: chunkY)
+                }
+            }
         }
         
         
@@ -626,7 +632,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
-        // 1. Get the right asset prefix
         var assetPrefix = "City"
         switch AppState.shared.currentLevel {
         case .DESERT:
@@ -637,11 +642,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             assetPrefix = "City"
         }
         
-        // 2. Randomly choose type
+        // Randomly choose type
         // 0 = Small1, 1 = Small2, 2 = Large, 3 = Item (Bolt)
         let choice = rng?.nextInt(upperBound: 4) ?? Int.random(in: 0...3)
         
-        // --- ITEM SPAWN (Exclusive) ---
+        // --- ITEM SPAWN ---
         if choice == 3 {
             let container = SKNode()
             let size = CGSize(width: 94, height: 103)
@@ -683,11 +688,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             
             obstaclesNode.addChild(container)
             
-            // CRITICAL FIX: Return here so we don't spawn an obstacle on top!
             return
         }
 
-        // --- OBSTACLE SPAWN (Runs only if choice != 3) ---
+        // --- OBSTACLE SPAWN ---
         var suffix = ""
         var isLarge = false
         
@@ -699,17 +703,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             suffix = "ObstacleSmall2"
             isLarge = false
         default:
-            // Case 2 falls here.
-            // Note: Case 3 will never reach here because of the 'return' above.
             suffix = "ObstacleLarge"
             isLarge = true
         }
         
-        // 3. Create Sprite
-        let imageName = "\(assetPrefix)\(suffix)"
-        let obstacle = SKSpriteNode(imageNamed: imageName)
+        //rng for cactus
+        // Determine if it's a cactus ONLY for desert
+        let canBeCactus = AppState.shared.currentLevel == .DESERT
+        let isCactus = canBeCactus && ((rng?.nextInt(upperBound: 11) ?? 0) == 0)
+
+        if isCactus {
+            suffix = "" // We won't use the suffix
+            isLarge = false
+        }
+
+        let obstacle: SKSpriteNode
+        if isCactus {
+            obstacle = SKSpriteNode(imageNamed: "Cactus")
+        } else {
+            obstacle = SKSpriteNode(imageNamed: "\(assetPrefix)\(suffix)")
+        }
         
-        // 4. Apply Scaling
+        // Apply Scaling
         let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
         
         if let texture = obstacle.texture {
@@ -721,16 +736,49 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             obstacle.color = .red
         }
         
-        // 5. Position
+        // Position
         obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
         
-        // 6. Physics Body
-        obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
+        // Physics
+        if isCactus {
+            let hitboxSize = CGSize(width: obstacle.size.width * 0.5, height: obstacle.size.height * 1.0)
+            obstacle.physicsBody = SKPhysicsBody(
+                rectangleOf: hitboxSize,
+                center: CGPoint(x: 0, y: 0)
+            )
+        } else if isLarge == false {
+            let hitboxSize = CGSize(width: obstacle.size.width * 0.8, height: obstacle.size.height * 1.0)
+            obstacle.physicsBody = SKPhysicsBody(
+                rectangleOf: hitboxSize,
+                center: CGPoint(x: 0, y: 0)
+            )
+        } else if AppState.shared.currentLevel == .CITY && suffix == "ObstacleLarge" {
+            let hitboxSize = CGSize(width: obstacle.size.width * 0.9, height: obstacle.size.height * 0.7)
+            obstacle.physicsBody = SKPhysicsBody(
+                rectangleOf: hitboxSize,
+                center: CGPoint(x: 0, y: -hitboxSize.height * 0.7 / 2)
+            )
+        } else if AppState.shared.currentLevel == .DESERT && suffix == "ObstacleLarge" {
+            let hitboxSize = CGSize(width: obstacle.size.width * 1.0, height: obstacle.size.height * 0.7)
+            obstacle.physicsBody = SKPhysicsBody(
+                rectangleOf: hitboxSize,
+                center: CGPoint(x: 0, y: -hitboxSize.height * 0.7 / 2)
+            )
+        } else if AppState.shared.currentLevel == .FOREST && suffix == "ObstacleLarge" {
+            let hitboxSize = CGSize(width: obstacle.size.width * 0.95, height: obstacle.size.height * 1.0)
+            obstacle.physicsBody = SKPhysicsBody(
+                rectangleOf: hitboxSize,
+                center: CGPoint(x: 0, y: 0)
+            )
+        } else {
+            obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
+        }
+        
         obstacle.physicsBody?.isDynamic = false
         obstacle.physicsBody?.friction = 0.5
         obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
         
-        // 7. Add to Container
+        // Add to Container
         obstaclesNode.addChild(obstacle)
     }
     
@@ -740,7 +788,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         switch AppState.shared.currentLevel {
         case .DESERT: assetPrefix = "Beach"
         case .FOREST: assetPrefix = "Forest"
-        default:      assetPrefix = "City"
+        default: assetPrefix = "City"
         }
 
         // foreground
@@ -772,10 +820,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // background
         if let rng = rng, rng.nextInt(upperBound: 2) == 0 {
-            let bgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectBG")
+            //rng for bush
+            let isBush = rng.nextInt(upperBound: 2) == 0
+            
+            let bgNode = (AppState.shared.currentLevel == .DESERT || AppState.shared.currentLevel == .FOREST) && isBush ? SKSpriteNode(imageNamed: AppState.shared.currentLevel == .DESERT ? "DryBush" : "Bush") : SKSpriteNode(imageNamed: "\(assetPrefix)ObjectBG")
+            
+            if isBush {
+                bgNode.alpha = 0.7
+            }
             
             // scale
-            let targetH: CGFloat = 200.0
+            let targetH: CGFloat = isBush ? 40.0 : 200.0
             if let tex = bgNode.texture {
                 let ratio = tex.size().width / tex.size().height
                 bgNode.size = CGSize(width: targetH * ratio, height: targetH)

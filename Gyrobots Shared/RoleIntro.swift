@@ -59,6 +59,8 @@ struct RoleIntro: View {
                 .foregroundStyle(.white)
                 .padding(.bottom, 8)
 
+            Spacer()
+            
             Text(roleDescription)
                 .font(.custom("AvenirNext-Regular", size: 20, relativeTo: .largeTitle))
                 .foregroundStyle(.white)
