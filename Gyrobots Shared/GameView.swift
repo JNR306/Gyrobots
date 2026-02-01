@@ -36,12 +36,35 @@ struct GameView: View {
                 .foregroundStyle(.white)
         }
          */
+        /*
+        .overlay {
+            switch appState.currentLevel {
+            case .some(.DESERT):
+                Image(.overlayDesert)
+                    .resizable()
+                    .scaledToFill()
+                    .blendMode(.multiply)
+            case .some(.CITY):
+                Image(.overlayCity)
+                    .resizable()
+                    .scaledToFill()
+            case .some(.FOREST):
+                Image(.overlayForest)
+                    .resizable()
+                    .scaledToFill()
+            case .none:
+                EmptyView()
+            }
+        }
+         */
     }
 }
 
 struct GameOverlay: View {
     
     @Environment(AppState.self) private var appState
+    
+    @State private var collectIsDisabled = false
     
     var body: some View {
         VStack {
@@ -80,6 +103,16 @@ struct GameOverlay: View {
                 HStack {
                     Button {
                         //collect
+                        print("Try to collect")
+                        appState.handleCollectAction()
+                        withAnimation {
+                            collectIsDisabled = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            withAnimation {
+                                collectIsDisabled = false
+                            }
+                        }
                     } label: {
                         Image(.collectButton)
                             .resizable()
@@ -88,6 +121,8 @@ struct GameOverlay: View {
                     .buttonStyle(PlainButtonStyle())
                     .frame(width: buttonSize, height: buttonSize)
                     .padding()
+                    .disabled(collectIsDisabled)
+                    .opacity(collectIsDisabled ? 0.5 : 1.0)
                     Spacer()
                     Button {
                         appState.handleJumpAction()
