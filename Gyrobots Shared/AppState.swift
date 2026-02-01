@@ -274,6 +274,8 @@ class AppState {
                     }
                 case .collect:
                     self.gameScene.collectItem()
+                case .removeItem:
+                    self.gameScene.removeItem(id: Int(msg.a ?? 0))
                 }
             }
         }
