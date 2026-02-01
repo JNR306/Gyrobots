@@ -65,6 +65,9 @@ struct RoleIntro: View {
                 .padding(.horizontal, 30)
 
             Spacer()
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
+            }
             /*
             Button {
                 HapticManager.tap()

@@ -61,6 +61,9 @@ struct Joining: View {
                 .padding()
             }
             Spacer()
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
+            }
         }
     }
 }

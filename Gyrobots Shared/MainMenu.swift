@@ -25,6 +25,7 @@ struct MainMenu: View {
                 VStack(spacing: 10) {
                     Button {
                         HapticManager.tap()
+                        SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                         withAnimation {
                             appState.currentView = .PLAY_MENU
                         }
@@ -36,6 +37,7 @@ struct MainMenu: View {
                     }
                     Button {
                         HapticManager.tap()
+                        SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                         withAnimation {
                             appState.currentView = .LEVEL_SELECTION
                         }
@@ -47,6 +49,9 @@ struct MainMenu: View {
                     }
                 }
                 Spacer()
+                    .onAppear {
+                        AppState.shared.startMenuMusicIfNeeded()
+                    }
                     .overlay {
                         if appState.bestTime > 0.0 {
                             VStack {

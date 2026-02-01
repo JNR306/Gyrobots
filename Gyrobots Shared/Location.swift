@@ -67,6 +67,9 @@ struct Location: View {
                 .padding()
             }
             Spacer()
+            .onAppear {
+                AppState.shared.startMenuMusicIfNeeded()
+            }
         }
     }
 }

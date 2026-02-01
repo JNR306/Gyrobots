@@ -349,6 +349,14 @@ class AppState {
         }
     }
 
+    func startMenuMusicIfNeeded() {
+            SoundManager.shared.playMusic("The-Pixeltown-Shuffle-2.mp3", volume: 0.35)
+        }
+
+        func stopMenuMusic() {
+            SoundManager.shared.stopMusic()
+        }
+    
     func startSensors() {
         guard motionManager.isDeviceMotionAvailable else { return }
         guard role == .gyro else { return }
@@ -491,6 +499,8 @@ class AppState {
     func finishGame() {
         stopTimer()
         updateBestTime()
+        SoundManager.shared.stopMusic()
+        startMenuMusicIfNeeded()
         withAnimation {
             self.currentView = .RESULT
         }

@@ -40,6 +40,7 @@ struct LevelSelection: View {
                         }
                         Button {
                             HapticManager.tap()
+                            SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                             appState.selectLevel(.DESERT)
                             withAnimation {
                                 appState.createRoom()
@@ -52,6 +53,7 @@ struct LevelSelection: View {
                         }
                         Button {
                             HapticManager.tap()
+                            SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                             appState.selectLevel(.CITY)
                             withAnimation {
                                 appState.createRoom()
@@ -64,6 +66,7 @@ struct LevelSelection: View {
                         }
                         Button {
                             HapticManager.tap()
+                            SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                             appState.selectLevel(.FOREST)
                             withAnimation {
                                 appState.createRoom()
@@ -75,6 +78,9 @@ struct LevelSelection: View {
                                 .frame(height: 200)
                         }
                         Spacer()
+                        .onAppear {
+                            AppState.shared.startMenuMusicIfNeeded()
+                        }
                     }
                     .padding(.horizontal, 40)
                 }
@@ -83,6 +89,7 @@ struct LevelSelection: View {
             Spacer()
             Button {
                 HapticManager.tap()
+                SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                 withAnimation {
                     appState.currentView = .MAIN_MENU
                 }
