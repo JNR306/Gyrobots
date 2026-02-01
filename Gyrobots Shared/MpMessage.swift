@@ -21,6 +21,7 @@ enum MPMessageType: String, Codable {
     case joining
     case jumpSuccessfull
     case collect
+    case removeItem
 }
 
 struct MPMessage: Codable {
@@ -30,9 +31,10 @@ struct MPMessage: Codable {
     let c: Double?
     let d: Double?
     let e: Double?
+    let f: Double?
 
-    init(type: MPMessageType, a: Double? = nil, b: Double? = nil, c: Double? = nil, d: Double? = nil, e: Double? = nil) {
+    init(type: MPMessageType, a: Double? = nil, b: Double? = nil, c: Double? = nil, d: Double? = nil, e: Double? = nil, f: Double? = nil) {
         self.type = type
-        self.a = a; self.b = b; self.c = c; self.d = d; self.e = e
+        self.a = a; self.b = b; self.c = c; self.d = d; self.e = e; self.f = f
     }
 }

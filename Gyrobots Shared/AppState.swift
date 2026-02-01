@@ -246,7 +246,8 @@ class AppState {
                         y: CGFloat(msg.b ?? 0),
                         vx: CGFloat(msg.c ?? 0),
                         vy: CGFloat(msg.d ?? 0),
-                        rotation: CGFloat(msg.e ?? 0)
+                        rotation: CGFloat(msg.e ?? 0),
+                        wheelRotation: CGFloat(msg.f ?? 0)
                     )
                 case .time:
                     let time = CGFloat(msg.a ?? 0)
@@ -273,6 +274,8 @@ class AppState {
                     }
                 case .collect:
                     self.gameScene.collectItem()
+                case .removeItem:
+                    self.gameScene.removeItem(id: Int(msg.a ?? 0))
                 }
             }
         }
