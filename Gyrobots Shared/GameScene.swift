@@ -83,7 +83,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             self.backgroundColor = SKColor(named: "BackgroundDesert") ?? .white
         case .CITY:
             self.backgroundColor = SKColor(named: "BackgroundCity") ?? .white
-        default:
+        case .some(.FOREST):
+            self.backgroundColor = SKColor(named: "BackgroundForest") ?? .white
+        case .none:
             self.backgroundColor = .white
         }
     }
@@ -229,7 +231,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         switch AppState.shared.currentLevel {
             case .DESERT: assetName = "Desert"
             case .CITY: assetName = "City"
-            case .FOREST: assetName = "Desert"
+            case .FOREST: assetName = "Forest"
             default : assetName = "Desert"
         }
     
@@ -383,8 +385,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         // Close shape
-        path.addLine(to: CGPoint(x: endX+200, y: isTerrainHigh.last ?? false ? 100 : 0))
-        path.addLine(to: CGPoint(x: endX+200, y: topFixedY))
+        path.addLine(to: CGPoint(x: endX+1000, y: isTerrainHigh.last ?? false ? 100 : 0))
+        path.addLine(to: CGPoint(x: endX+1000, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()
@@ -444,47 +446,68 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
-        // 1. Determine Asset Name based on Level
-        var assetPrefix = "City" // Default
-        if AppState.shared.currentLevel == .DESERT {
+        // 1. Determine Asset Prefix based on Level
+        var assetPrefix = "City"
+        switch AppState.shared.currentLevel {
+        case .DESERT:
             assetPrefix = "Beach"
+        case .FOREST:
+            assetPrefix = "Forest"
+        default:
+            assetPrefix = "City"
         }
         
-        // Choose random size
-        var isLarge = false
+        // 2. Randomly choose type (Small1, Small2, or Large)
+        // 0 = Small1, 1 = Small2, 2 = Large
+        var choice = 0
         if let rng = rng {
-            isLarge = rng.nextInt(upperBound: 2) == 0
+            choice = rng.nextInt(upperBound: 3)
         } else {
-            isLarge = Bool.random()
+            choice = Int.random(in: 0...2)
         }
         
-        let sizeSuffix = isLarge ? "ObstacleLarge" : "ObstacleSmall"
-        let imageName = "\(assetPrefix)\(sizeSuffix)"
+        var suffix = ""
+        var isLarge = false
         
+        switch choice {
+        case 0:
+            suffix = "ObstacleSmall1"
+            isLarge = false
+        case 1:
+            suffix = "ObstacleSmall2"
+            isLarge = false
+        default:
+            suffix = "ObstacleLarge"
+            isLarge = true
+        }
+        
+        // 3. Create Sprite
+        let imageName = "\(assetPrefix)\(suffix)"
         let obstacle = SKSpriteNode(imageNamed: imageName)
+        
+        // 4. Apply Scaling
+        // Using your desired heights: 110 for Large, 90 for Small
         let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
         
         if let texture = obstacle.texture {
-            // Calculate width to maintain the original aspect ratio
             let aspectRatio = texture.size().width / texture.size().height
             obstacle.size = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
         } else {
-            // Fallback if image is missing
+            // Fallback
             obstacle.size = CGSize(width: targetHeight, height: targetHeight)
             obstacle.color = .red
         }
         
         // 5. Position
-        // Place it sitting exactly on top of the ground
         obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
         
         // 6. Physics Body
-        // Matches the visual size exactly
         obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
         obstacle.physicsBody?.isDynamic = false
         obstacle.physicsBody?.friction = 0.5
         obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
         
+        // 7. Add to Container
         obstaclesNode.addChild(obstacle)
     }
     // MARK: - Game Loop

@@ -25,7 +25,7 @@ struct PlayMenu: View {
                 Button {
                     HapticManager.tap()
                     withAnimation {
-                        appState.createRoom()
+                        appState.locate()
                     }
                 } label: {
                     Image(.newGameButton)

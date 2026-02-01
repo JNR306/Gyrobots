@@ -131,6 +131,11 @@ struct Gyrobots: App {
                             .id("RoleIntro")
                             .zIndex(2.2)
                             .transition(.push(from: .bottom))
+                    case .LOCATION:
+                        Location()
+                            .id("Location")
+                            .zIndex(2.1)
+                            .transition(.push(from: .bottom))
                     }
                     
                 }
