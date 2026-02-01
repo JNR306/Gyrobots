@@ -526,8 +526,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 spawnRandomObstacle(at: spawnX, groundY: chunkY)
             }
             
-            // attempt to spawn deco 3 times
-            for _ in 0..<3 {
+            // attempt to spawn deco 2 times
+            for _ in 0..<2 {
                 // 80% chance
                 if (rng?.nextInt(upperBound: 5) ?? Int.random(in: 0...4)) < 4 {
                     
