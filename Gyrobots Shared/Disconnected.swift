@@ -49,7 +49,7 @@ struct Disconnected: View {
             }
             .onAppear {
                 // Backup (in case handler isn't called for some reason)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     withAnimation {
                         appState.cancelMultipeerAndReturnToMenu()
                     }
