@@ -206,6 +206,7 @@ class AppState {
                         self.currentLevel = level
                     }
                     self.gameScene.setBackground()
+                    self.gameScene.setupBackground()
 
                     // IMPORTANT: transition joiner into game
                     withAnimation {
@@ -244,7 +245,8 @@ class AppState {
                         x: CGFloat(msg.a ?? 0),
                         y: CGFloat(msg.b ?? 0),
                         vx: CGFloat(msg.c ?? 0),
-                        vy: CGFloat(msg.d ?? 0)
+                        vy: CGFloat(msg.d ?? 0),
+                        rotation: CGFloat(msg.e ?? 0)
                     )
                 case .time:
                     let time = CGFloat(msg.a ?? 0)
@@ -269,6 +271,8 @@ class AppState {
                     if self.role == .jump {
                         HapticManager.tap()
                     }
+                case .collect:
+                    self.gameScene.collectItem()
                 }
             }
         }
@@ -387,6 +391,15 @@ class AppState {
             print("JUMPPPY")
             mp.send(MPMessage(type: .jump, a: force), mode: .reliable)
         }
+    }
+    
+    func handleCollectAction() {
+        if isHost {
+            self.gameScene.collectItem()
+        } else {
+            self.mp.send(MPMessage(type: .collect))
+        }
+        HapticManager.tap()
     }
     
     func startTimer() {
@@ -510,7 +523,7 @@ class AppState {
         }
 
         // After 5s, reset everything and return to menu
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             guard let self else { return }
             self.cancelMultipeerAndReturnToMenu()
             self.isHandlingDisconnect = false

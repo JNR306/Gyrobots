@@ -20,6 +20,7 @@ enum MPMessageType: String, Codable {
     case restartedGame
     case joining
     case jumpSuccessfull
+    case collect
 }
 
 struct MPMessage: Codable {
@@ -28,9 +29,10 @@ struct MPMessage: Codable {
     let b: Double?
     let c: Double?
     let d: Double?
+    let e: Double?
 
-    init(type: MPMessageType, a: Double? = nil, b: Double? = nil, c: Double? = nil, d: Double? = nil) {
+    init(type: MPMessageType, a: Double? = nil, b: Double? = nil, c: Double? = nil, d: Double? = nil, e: Double? = nil) {
         self.type = type
-        self.a = a; self.b = b; self.c = c; self.d = d
+        self.a = a; self.b = b; self.c = c; self.d = d; self.e = e
     }
 }

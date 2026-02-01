@@ -10,10 +10,11 @@ import GameplayKit
 import SwiftUI
 
 struct PhysicsCategory {
-    static let none: UInt32 = 0      // 0
-    static let player: UInt32 = 0x1    // 1
-    static let finishLine: UInt32 = 0x2 // 2
-    static let terrain: UInt32 = 0x4    // 4
+    static let none: UInt32 = 0
+    static let player: UInt32 = 0x1
+    static let finishLine: UInt32 = 0x2
+    static let terrain: UInt32 = 0x4
+    static let item: UInt32 = 0x8
 }
 
 final class GameScene: SKScene, SKPhysicsContactDelegate {
@@ -25,9 +26,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     var obstaclesNode: SKNode!
 
     // MARK: - Settings
-    let moveSpeed: CGFloat = 300.0
+    var baseMoveSpeed: CGFloat = 300.0
+    var moveSpeed: CGFloat = 300.0
+    var boostMultiplier: CGFloat = 1.5
+    var isSpeedBoostActive = false
+
     let jumpForce: CGFloat = 1000.0
     let smallJumpForce: CGFloat = 1000.0
+    
+    //Player character visual tilt
+    let maxTilt: CGFloat = 0.15
+    let leanSpeed: CGFloat = 0.1
 
     // MARK: - Multiplayer
     weak var mp: MultipeerManager?
@@ -69,6 +78,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func didMove(to view: SKView) {
+        view.showsPhysics = true
         setBackground()
         
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
@@ -206,11 +216,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     /// Joiner mirrors the host player state.
-    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat) {
+    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat, rotation: CGFloat) {
         guard isRemoteViewOnly else { return }
         guard player != nil else { return } // joiner might receive state before scene started
 
         player.position = CGPoint(x: x, y: player.position.y)
+        player.zRotation = rotation
         player.physicsBody?.velocity = CGVector(dx: vx, dy: vy)
     }
 
@@ -226,59 +237,54 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func setupBackground() {
-        // 1. Determine Asset Names
+        // Determine Asset Names
         var assetName = "City"
         switch AppState.shared.currentLevel {
             case .DESERT: assetName = "Desert"
             case .CITY: assetName = "City"
             case .FOREST: assetName = "Forest"
-            default : assetName = "Desert"
+            default : assetName = "City"
         }
     
     
         let image1 = "Background\(assetName)1"
         let image2 = "Background\(assetName)2"
         
-        // 2. Create Containers
+        // Create Containers
         backgroundLayer1 = SKNode()
         backgroundLayer2 = SKNode()
         
-        // Z-Positions: Player is 0. Backgrounds must be negative.
-        // Layer 1 is closer than Layer 2, so it sits on top (-10 vs -20).
         backgroundLayer1.zPosition = -10
         backgroundLayer2.zPosition = -20
         
         addChild(backgroundLayer1)
         addChild(backgroundLayer2)
         
-        // 3. Helper to Tile Images
+        // Tile Images
         // This function places copies of the image side-by-side to cover the world width
-        func createStrip(imageName: String, parentNode: SKNode, factor: CGFloat, yOffset: CGFloat) {
-                let tempSprite = SKSpriteNode(imageNamed: imageName)
-                let width = tempSprite.size.width
-                
-                // Calculate how many sprites we need to cover the level
-                // Since parallax layers move slower, they actually need LESS width than the full level,
-                // but tiling the full length is the safest/easiest way to prevent gaps.
-                let numberOfTiles = Int((rightFixedX - leftFixedX) / width) + 5
-                
-                for i in 0..<numberOfTiles {
-                    let sprite = SKSpriteNode(imageNamed: imageName)
-                    sprite.anchorPoint = CGPoint(x: 0, y: 0.5) // Anchor left-center
-                    // Position starting from leftFixedX
-                    sprite.position = CGPoint(x: leftFixedX + CGFloat(i) * width, y: yOffset)
-                    
-                    // Optional: Scale to fit screen height if needed
-                     sprite.size = CGSize(width: width, height: self.size.height)
-                    
-                    parentNode.addChild(sprite)
-                }
-            }
+        func createStrip(imageName: String, parentNode: SKNode, factor: CGFloat, xOffset: CGFloat, yOffset: CGFloat) {
+            let tempSprite = SKSpriteNode(imageNamed: imageName)
+            let width = tempSprite.size.width
             
-            // 4. Generate the Strips
-            createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 100.0)
-            createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 200.0)
+            // Calculate how many sprites we need to cover the level
+            let numberOfTiles = Int((rightFixedX - leftFixedX) / width) + 5
+            
+            for i in 0..<numberOfTiles {
+                let sprite = SKSpriteNode(imageNamed: imageName)
+                sprite.anchorPoint = CGPoint(x: 0, y: 0) // Anchor left-center
+                // Position starting from leftFixedX
+                sprite.position = CGPoint(x: leftFixedX + CGFloat(i) * width, y: yOffset)
+                
+                sprite.size = CGSize(width: width, height: self.size.height)
+                
+                parentNode.addChild(sprite)
+            }
         }
+        
+        // Generate the Strips
+        createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, xOffset: -500.0, yOffset: -10.0)
+        createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, xOffset: 0.0, yOffset: 50.0)
+    }
 
     func setupPlayer() {
         // Remove an existing player if we’re restarting / re-entering
@@ -297,13 +303,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player = SKSpriteNode(imageNamed: imageName)
         player.name = "player"
         
-        let startY = 200
+        player.anchorPoint = CGPoint(x: 0.5, y: 0.0)
+        
+        let startY = 200 - (player.size.height / 2)
         player.position = CGPoint(x: 0, y: startY)
+        
+        let hitboxSize = CGSize(width: player.size.width * 0.5, height: player.size.height * 1.0)
+        
+        let ellipsePath = CGPath(ellipseIn: CGRect(
+            x: (-hitboxSize.width / 2) - 18,
+            y: 0.0,
+            width: hitboxSize.width,
+            height: hitboxSize.height
+        ), transform: nil)
 
-        player.physicsBody = SKPhysicsBody(
-            rectangleOf: player.size,
-            center: CGPoint(x: 0, y: 0)
-        )
+        player.physicsBody = SKPhysicsBody(polygonFrom: ellipsePath)
         player.physicsBody?.isDynamic = true
         player.physicsBody?.allowsRotation = false
         player.physicsBody?.friction = 0.2
@@ -390,10 +404,36 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()
+        
+        let tileTexture = SKTexture(imageNamed: "BG2")
 
         terrainNode = SKShapeNode(path: path)
-        terrainNode.fillColor = SKColor(named: "Terrain") ?? .white
+        terrainNode.fillTexture = tileTexture
+        terrainNode.fillColor = .white
         terrainNode.strokeColor = .clear
+        
+        let tileSizeInPoints = tileTexture.size()
+        let tilesAcross  = Float(terrainNode.frame.size.width  / tileSizeInPoints.width)
+        let tilesDown    = Float(terrainNode.frame.size.height / tileSizeInPoints.height)
+        let uniformX = SKUniform(name: "u_tilesX", float: tilesAcross)
+        let uniformY = SKUniform(name: "u_tilesY", float: tilesDown)
+
+        let tileShader =
+        """
+        void main() {
+            vec2 tiles = vec2(u_tilesX, u_tilesY);
+            vec2 uv = v_tex_coord * tiles;
+            vec2 tileUV = fract(uv);
+            gl_FragColor = texture2D(u_texture, tileUV);
+        }
+        """
+        
+        let shader = SKShader(
+            source: tileShader,
+            uniforms: [uniformX, uniformY]
+        )
+
+        terrainNode.fillShader = shader
         
         terrainNode.physicsBody = SKPhysicsBody(edgeLoopFrom: path)
         terrainNode.physicsBody?.isDynamic = false
@@ -459,57 +499,132 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         // 2. Randomly choose type (Small1, Small2, or Large)
         // 0 = Small1, 1 = Small2, 2 = Large
-        var choice = 0
-        if let rng = rng {
-            choice = rng.nextInt(upperBound: 3)
+        let choice = rng?.nextInt(upperBound: 4) ?? Int.random(in: 0...3)
+        
+        if choice == 3 {
+            let container = SKNode()
+            let size = CGSize(width: 94, height: 103)
+            
+            // Bolt
+            let boltSprite = SKSpriteNode(imageNamed: "Bolt")
+            boltSprite.name = "bolt"
+            boltSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
+            boltSprite.zPosition = 1
+            
+            let moveUp = SKAction.moveBy(x: 0, y: 10, duration: 1.0)
+            let moveDown = moveUp.reversed()
+            let sequence = SKAction.sequence([moveUp, moveDown])
+            let repeatForever = SKAction.repeatForever(sequence)
+
+            sequence.timingMode = .easeInEaseOut
+            boltSprite.run(repeatForever)
+            
+            container.addChild(boltSprite)
+            
+            // Item Plate
+            let plateSprite = SKSpriteNode(imageNamed: "ItemPlate")
+            plateSprite.name = "plate"
+            plateSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
+            plateSprite.zPosition = 2
+            container.addChild(plateSprite)
+            
+            // Position and Physics
+            container.position = CGPoint(x: x, y: groundY + size.height * 0.7 / 2)
+            
+            // Collision
+            container.physicsBody = SKPhysicsBody(rectangleOf: size)
+            container.physicsBody?.isDynamic = false
+            container.physicsBody?.categoryBitMask = PhysicsCategory.item
+            container.physicsBody?.collisionBitMask = PhysicsCategory.none
+            container.physicsBody?.contactTestBitMask = PhysicsCategory.player
+            
+            obstaclesNode.addChild(container)
         } else {
-            choice = Int.random(in: 0...2)
+            var suffix = ""
+            var isLarge = false
+            
+            switch choice {
+            case 0:
+                suffix = "ObstacleSmall1"
+                isLarge = false
+            case 1:
+                suffix = "ObstacleSmall2"
+                isLarge = false
+            case 2:
+                suffix = "ObstacleLarge"
+                isLarge = true
+            default:
+                suffix = "ObstacleSmall1"
+                isLarge = false
+            }
+            
+            // 3. Create Sprite
+            let imageName = "\(assetPrefix)\(suffix)"
+            let obstacle = SKSpriteNode(imageNamed: imageName)
+            
+            // 4. Apply Scaling
+            // Using your desired heights: 110 for Large, 90 for Small
+            let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
+            
+            if let texture = obstacle.texture {
+                let aspectRatio = texture.size().width / texture.size().height
+                obstacle.size = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
+            } else {
+                // Fallback
+                obstacle.size = CGSize(width: targetHeight, height: targetHeight)
+                obstacle.color = .red
+            }
+            
+            // 5. Position
+            obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
+            
+            // 6. Physics Body
+            obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
+            obstacle.physicsBody?.isDynamic = false
+            obstacle.physicsBody?.friction = 0.5
+            obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
+            
+            // 7. Add to Container
+            obstaclesNode.addChild(obstacle)
         }
-        
-        var suffix = ""
-        var isLarge = false
-        
-        switch choice {
-        case 0:
-            suffix = "ObstacleSmall1"
-            isLarge = false
-        case 1:
-            suffix = "ObstacleSmall2"
-            isLarge = false
-        default:
-            suffix = "ObstacleLarge"
-            isLarge = true
-        }
-        
-        // 3. Create Sprite
-        let imageName = "\(assetPrefix)\(suffix)"
-        let obstacle = SKSpriteNode(imageNamed: imageName)
-        
-        // 4. Apply Scaling
-        // Using your desired heights: 110 for Large, 90 for Small
-        let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
-        
-        if let texture = obstacle.texture {
-            let aspectRatio = texture.size().width / texture.size().height
-            obstacle.size = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
-        } else {
-            // Fallback
-            obstacle.size = CGSize(width: targetHeight, height: targetHeight)
-            obstacle.color = .red
-        }
-        
-        // 5. Position
-        obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
-        
-        // 6. Physics Body
-        obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
-        obstacle.physicsBody?.isDynamic = false
-        obstacle.physicsBody?.friction = 0.5
-        obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
-        
-        // 7. Add to Container
-        obstaclesNode.addChild(obstacle)
     }
+    
+    func collectItem() {
+        guard let physicsBody = player.physicsBody else { return }
+        
+        // Get all bodies currently touching the player
+        let contactedBodies = physicsBody.allContactedBodies()
+        print(contactedBodies)
+            
+        for body in contactedBodies {
+            // Compare the other body's category to your specific item category
+            if body.categoryBitMask == PhysicsCategory.item {
+                print("Player is touching an item!")
+                applySpeedBoost()
+                HapticManager.collect()
+                if let container = body.node {
+                    if let bolt = container.childNode(withName: "bolt") {
+                        bolt.removeFromParent()
+                        container.physicsBody?.categoryBitMask = PhysicsCategory.none
+                    }
+                }
+            }
+        }
+    }
+    
+    func applySpeedBoost() {
+        isSpeedBoostActive = true
+        moveSpeed = baseMoveSpeed * boostMultiplier
+        
+        // Wait 5 seconds, then return to normal
+        let wait = SKAction.wait(forDuration: 5.0)
+        let reset = SKAction.run { [weak self] in
+            self?.moveSpeed = self?.baseMoveSpeed ?? 300.0
+            self?.isSpeedBoostActive = false
+        }
+        self.run(SKAction.sequence([wait, reset]), withKey: "speedBoostTimer")
+    }
+    
     // MARK: - Game Loop
 
     override func update(_ currentTime: TimeInterval) {
@@ -520,8 +635,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             var xInput = tiltX
             if abs(xInput) < tiltDeadzone { xInput = 0 }
             player.physicsBody?.velocity.dx = xInput * moveSpeed
+            
+            let targetRotation = -CGFloat(xInput) * maxTilt
+            player.zRotation = player.zRotation + (targetRotation - player.zRotation) * leanSpeed
         }
-
+        
         // Camera follows on both devices
         if let cam = gameCamera, let p = player {
             let targetX = p.position.x
@@ -552,7 +670,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 a: Double(player.position.x),
                 b: Double(player.position.y),
                 c: Double(body.velocity.dx),
-                d: Double(body.velocity.dy)
+                d: Double(body.velocity.dy),
+                e: Double(player.zRotation)
             ))
         }
         
