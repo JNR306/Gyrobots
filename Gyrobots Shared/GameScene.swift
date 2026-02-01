@@ -55,7 +55,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     // MARK: - State send throttling (host -> joiner)
     private var lastStateSendTime: TimeInterval = 0
-    private let stateSendInterval: TimeInterval = 1.0 / 30.0 // 30 Hz
+    private let stateSendInterval: TimeInterval = 1.0 / 25.0 // 30 Hz
     
     // MARK: - Timer send throttling (host -> joiner)
     private var lastTimerSendTime: TimeInterval = 0
@@ -69,6 +69,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Paralax Background
     var backgroundLayer1: SKNode!
     var backgroundLayer2: SKNode!
+    
+    var generatedItemsCount = 0
 
     // MARK: - Scene loading
     class func newGameScene() -> GameScene {
@@ -78,7 +80,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func didMove(to view: SKView) {
-        view.showsPhysics = true
+        //view.showsPhysics = true
         setBackground()
         
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
@@ -216,13 +218,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     /// Joiner mirrors the host player state.
-    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat, rotation: CGFloat) {
+    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat, rotation: CGFloat, wheelRotation: CGFloat) {
         guard isRemoteViewOnly else { return }
         guard player != nil else { return } // joiner might receive state before scene started
 
         player.position = CGPoint(x: x, y: player.position.y)
         player.zRotation = rotation
         player.physicsBody?.velocity = CGVector(dx: vx, dy: vy)
+        player.childNode(withName: "wheel")?.zRotation = wheelRotation
     }
 
     // MARK: - Setup
@@ -296,7 +299,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         switch AppState.shared.currentLevel {
             case .CITY: imageName = "RobotCity"
             case .DESERT: imageName = "RobotDesert"
-            case .FOREST: imageName = "RobotDesert"
+            case .FOREST: imageName = "RobotForest"
             default : imageName = "RobotCity"
         }
         
@@ -308,11 +311,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let startY = 200 - (player.size.height / 2)
         player.position = CGPoint(x: 0, y: startY)
         
+        let wheel = SKSpriteNode(imageNamed: "Wheel")
+        wheel.name = "wheel"
+        
+        wheel.position = CGPoint(x: -14, y: 10)
+        wheel.zPosition = -1
+        
+        let wheelScale = (player.size.height * 0.37) / wheel.size.height
+        wheel.setScale(wheelScale)
+        
+        player.addChild(wheel)
+        
+        // Endless spin
+        //let spin = SKAction.rotate(byAngle: -.pi * 2, duration: 4.0)
+        //wheel.run(SKAction.repeatForever(spin))
+        
         let hitboxSize = CGSize(width: player.size.width * 0.5, height: player.size.height * 1.0)
         
         let ellipsePath = CGPath(ellipseIn: CGRect(
             x: (-hitboxSize.width / 2) - 18,
-            y: 0.0,
+            y: 0.0 - 3,
             width: hitboxSize.width,
             height: hitboxSize.height
         ), transform: nil)
@@ -638,6 +656,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             
             let targetRotation = -CGFloat(xInput) * maxTilt
             player.zRotation = player.zRotation + (targetRotation - player.zRotation) * leanSpeed
+            
+            if let wheel = player.childNode(withName: "wheel") {
+                let velocityX = player.physicsBody?.velocity.dx ?? 0.0
+                
+                if abs(velocityX) > 0.5 {
+                    let rotationAmount = (velocityX / moveSpeed) * 0.15
+                    wheel.zRotation -= rotationAmount
+                }
+            }
         }
         
         // Camera follows on both devices
@@ -671,7 +698,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 b: Double(player.position.y),
                 c: Double(body.velocity.dx),
                 d: Double(body.velocity.dy),
-                e: Double(player.zRotation)
+                e: Double(player.zRotation),
+                f: Double(player.childNode(withName: "wheel")?.zRotation ?? 0.0)
             ))
         }
         
