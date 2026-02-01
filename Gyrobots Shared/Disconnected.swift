@@ -60,26 +60,6 @@ struct Disconnected: View {
             .onAppear {
                 AppState.shared.startMenuMusicIfNeeded()
             }
-            /*
-            Button {
-                HapticManager.tap()
-                withAnimation {
-                    appState.cancelMultipeerAndReturnToMenu()
-                }
-            } label: {
-                HStack {
-                    Image(.home)
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                        .offset(y: -1)
-                    Text("Main Menu")
-                        .font(.custom("AvenirNext-Medium", size: 20, relativeTo: .largeTitle))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                }
-                .padding()
-            }
-            */
             Spacer()
         }
     }

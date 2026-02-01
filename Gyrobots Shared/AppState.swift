@@ -141,7 +141,6 @@ class AppState {
             currentView = .JOINING
         }
         mp.invite(room: room)
-        //mp.sendImportant(MPMessage(type: .joining))
     }
     
     private func assignRandomRolesOnce() {
@@ -164,7 +163,7 @@ class AppState {
         mp.onConnectedPeersChanged = { [weak self] peers in
             guard let self else { return }
             DispatchQueue.main.async {
-                if peers.count == 1 { // 1v1
+                if peers.count == 1 {
                     //Host assigns roles and immediately shows role screen
                     if self.isHost {
                         self.assignRandomRolesOnce()
@@ -250,8 +249,6 @@ class AppState {
                     self.gameScene.applyRemoteTilt(x)
 
                 case .jump:
-                    //let force = CGFloat(msg.a ?? Double(self.gameScene.smallJumpForce))
-                    //self.gameScene.applyRemoteJump(force: force)
                     if self.isHost {
                         let successfull = self.gameScene.jump()
                         if successfull {
@@ -313,13 +310,6 @@ class AppState {
                 self.handlePeerDisconnected()
             }
         }
-
-        // One device hosts, one joins, for now, ipad = host (jump)
-        //if role == .gyro {
-        //    mp.startHosting()
-        //} else {
-        //    mp.startJoining()
-        //}
     }
 
     /// Call this when you enter GAME (host starts + broadcasts seed)
@@ -398,7 +388,6 @@ class AppState {
             // to display the device rotation
             if self.role == .gyro {
                 self.tiltX = x
-                //print("Sensor: \(x)")
             }
             
             if self.isHost {
@@ -587,9 +576,6 @@ class AppState {
         didAssignRoles = false
         isHandlingDisconnect = false
         isHost = false
-
-        // Optional: also reset level selection per your design
-        // currentLevel = .DESERT
 
         role = (UIDevice.current.userInterfaceIdiom == .pad) ? .jump : .gyro
         setupGameRoleFlags()

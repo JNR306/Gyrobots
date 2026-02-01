@@ -47,7 +47,7 @@ final class OverpassManager {
         } catch {
             print(rawString)
             print("OVERPASS API DID NOT RESPOND")
-            //AppState.shared.cancelMultipeerAndReturnToMenu()
+
             //we have no other option than to give up if the api does not want to answer for some reason
             AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
             throw error
@@ -87,7 +87,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
             return
         }
 
-        // Normal GPS path (unchanged)
+        // Normal GPS path
         locationManager.delegate = self
         locationManager.requestWhenInUseAuthorization()
         locationManager.startUpdatingLocation()
@@ -122,7 +122,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
                 print("Priority 1: Inside a Park/Forest - \(nature.tags?["name"] ?? "Unnamed")")
                 AppState.shared.selectLevel(.FOREST)
             }
-            // Otherwise, check for Deserts/Beaches
+            // Check for Deserts/Beaches
             else if let desert = elements.first(where: { element in
                 let natural = element.tags?["natural"] ?? ""
                 return ["sand", "beach", "desert", "dune", "heath"].contains(natural)
@@ -146,7 +146,7 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
             onResultFound?(response)
         } catch {
             print("Overpass Error: \(error)")
-            //AppState.shared.cancelMultipeerAndReturnToMenu()
+
             //we have no other option than to give up if the api does not want to answer for some reason
             AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
             onResultFound?(nil)

@@ -84,7 +84,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func didMove(to view: SKView) {
-        //view.showsPhysics = true
         setBackground()
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
         setupCamera()
@@ -134,9 +133,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         startLevelMusic()
         
         print("Started level as joiner")
-
-        // Joiner should not simulate
-        // player.physicsBody?.isDynamic = false
     }
 
     private func configureLevel(seed: Int32) {
@@ -327,10 +323,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         wheel.setScale(wheelScale)
         
         player.addChild(wheel)
-        
-        // Endless spin
-        //let spin = SKAction.rotate(byAngle: -.pi * 2, duration: 4.0)
-        //wheel.run(SKAction.repeatForever(spin))
         
         let hitboxSize = CGSize(width: player.size.width * 0.5, height: player.size.height * 1.0)
         

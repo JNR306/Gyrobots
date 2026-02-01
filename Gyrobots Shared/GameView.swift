@@ -16,7 +16,6 @@ struct GameView: View {
     var body: some View {
         ZStack {
             SpriteView(scene: appState.gameScene)
-                //.border(.yellow, width: 3)
                 .ignoresSafeArea()
         }
         .onAppear {
@@ -28,35 +27,6 @@ struct GameView: View {
             appState.stopSensors()
             AppDelegate.unlockOrientation()
         }
-        /*
-        .overlay(alignment: .topLeading) { //TEMPORARY - ONLY FOR DEVELOPMENT
-            Text("isHost: \(appState.isHost ? "YES" : "NO")  role: \(appState.role == .gyro ? "GYRO" : "JUMP")")
-                .padding(8)
-                .background(.black.opacity(0.6))
-                .foregroundStyle(.white)
-        }
-         */
-        /*
-        .overlay {
-            switch appState.currentLevel {
-            case .some(.DESERT):
-                Image(.overlayDesert)
-                    .resizable()
-                    .scaledToFill()
-                    .blendMode(.multiply)
-            case .some(.CITY):
-                Image(.overlayCity)
-                    .resizable()
-                    .scaledToFill()
-            case .some(.FOREST):
-                Image(.overlayForest)
-                    .resizable()
-                    .scaledToFill()
-            case .none:
-                EmptyView()
-            }
-        }
-         */
     }
 }
 
