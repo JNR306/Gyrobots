@@ -20,34 +20,66 @@ struct LevelSelection: View {
                 .padding()
             Spacer()
             ScrollView(.horizontal) {
-                HStack(spacing: 10) {
-                    Button {
-                        HapticManager.tap()
-                        appState.selectLevel(.DESERT)
-                        withAnimation {
-                            appState.createRoom()
+                ZStack {
+                    Color.clear
+                        .containerRelativeFrame(.horizontal)
+
+                    HStack(spacing: 10) {
+                        Spacer()
+                        Button {
+                            HapticManager.tap()
+                            appState.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
+                            withAnimation {
+                                appState.createRoom()
+                            }
+                        } label: {
+                            Image(.randomButton)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 200)
                         }
-                    } label: {
-                        Image(.desertButton)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 200)
-                    }
-                    Button {
-                        HapticManager.tap()
-                        appState.selectLevel(.CITY)
-                        withAnimation {
-                            appState.createRoom()
+                        Button {
+                            HapticManager.tap()
+                            appState.selectLevel(.DESERT)
+                            withAnimation {
+                                appState.createRoom()
+                            }
+                        } label: {
+                            Image(.desertButton)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 200)
                         }
-                    } label: {
-                        Image(.cityButton)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 200)
+                        Button {
+                            HapticManager.tap()
+                            appState.selectLevel(.CITY)
+                            withAnimation {
+                                appState.createRoom()
+                            }
+                        } label: {
+                            Image(.cityButton)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 200)
+                        }
+                        Button {
+                            HapticManager.tap()
+                            appState.selectLevel(.FOREST)
+                            withAnimation {
+                                appState.createRoom()
+                            }
+                        } label: {
+                            Image(.forestButton)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 200)
+                        }
+                        Spacer()
                     }
+                    .padding(.horizontal, 40)
                 }
-                .containerRelativeFrame(.horizontal)
             }
+            .scrollIndicators(.hidden)
             Spacer()
             Button {
                 HapticManager.tap()
