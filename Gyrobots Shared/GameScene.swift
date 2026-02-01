@@ -562,9 +562,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             
             // Bolt
             let boltSprite = SKSpriteNode(imageNamed: "Bolt")
-            boltSprite.name = "bolt"
+            boltSprite.name = "bolt\(generatedItemsCount)"
             boltSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
-            boltSprite.zPosition = 1
+            boltSprite.zPosition = 2
+            
+            generatedItemsCount += 1
             
             // Animation
             let moveUp = SKAction.moveBy(x: 0, y: 10, duration: 1.0)
@@ -581,7 +583,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let plateSprite = SKSpriteNode(imageNamed: "ItemPlate")
             plateSprite.name = "plate"
             plateSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
-            plateSprite.zPosition = 2
+            plateSprite.zPosition = 3
             container.addChild(plateSprite)
             
             // Position and Physics
@@ -690,6 +692,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
     
+    func removeItem(id: Int) {
+        let targetName = "bolt\(id)"
+        
+        if let boltNode = self.childNode(withName: "//\(targetName)") {
+            boltNode.parent?.physicsBody?.categoryBitMask = PhysicsCategory.none
+            boltNode.removeFromParent()
+            
+            HapticManager.collect()
+            print("Successfully removed \(targetName)")
+        } else {
+            print("Bolt with ID \(id) not found in scene.")
+        }
+    }
+    
     func collectItem() {
         guard let physicsBody = player.physicsBody else { return }
         
@@ -701,9 +717,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             // Compare the other body's category to your specific item category
             if body.categoryBitMask == PhysicsCategory.item {
                 print("Player is touching an item!")
-                applySpeedBoost()
-                HapticManager.collect()
                 if let container = body.node {
+                    for child in container.children {
+                        if let name = child.name, name.hasPrefix("bolt") {
+                            
+                            // Extract the id
+                            let idString = name.replacingOccurrences(of: "bolt", with: "")
+                            if let boltID = Int(idString) {
+                                print("Collected bolt with ID: \(boltID)")
+                                
+                                mp?.send(MPMessage(type: .removeItem, a: Double(boltID)))
+                            }
+                            
+                            // Remove bolt
+                            child.removeFromParent()
+                            applySpeedBoost()
+                            HapticManager.collect()
+                            
+                            // Disable the item
+                            container.physicsBody?.categoryBitMask = PhysicsCategory.none
+                            
+                            break
+                        }
+                    }
                     if let bolt = container.childNode(withName: "bolt") {
                         bolt.removeFromParent()
                         container.physicsBody?.categoryBitMask = PhysicsCategory.none

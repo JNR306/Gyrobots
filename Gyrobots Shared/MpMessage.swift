@@ -21,6 +21,7 @@ enum MPMessageType: String, Codable {
     case joining
     case jumpSuccessfull
     case collect
+    case removeItem
 }
 
 struct MPMessage: Codable {
