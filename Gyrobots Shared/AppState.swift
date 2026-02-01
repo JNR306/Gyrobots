@@ -4,6 +4,7 @@ import Observation
 import SpriteKit
 import MultipeerConnectivity
 import CoreMotion
+import CoreLocation
 
 enum CurrentView {
     case MAIN_MENU
@@ -58,6 +59,7 @@ class AppState {
         
     var currentLevel: Level? = .DESERT
     var wasLevelSetByLocation = false
+    var isShowingManualLocationPicker: Bool = false
     
     var startTime: Double = 0
     var elapsedTime: Double = 0
@@ -68,6 +70,9 @@ class AppState {
     var isNewBestTime: Bool = false
     
     var tiltX: Double = 0.0
+    
+    // Demo/testing: if set, LocationHelper should generate using this coordinate
+    var manualLocationOverride: CLLocationCoordinate2D? = nil
     
     init() {
         let scene = GameScene.newGameScene()
@@ -80,14 +85,19 @@ class AppState {
         setupGameRoleFlags()
     }
     
-    func locate() {
+    func locate(using coordinate: CLLocationCoordinate2D? = nil) {
         wasLevelSetByLocation = false
+        
+        // set/clear override
+        manualLocationOverride = coordinate
+        
         print("L1")
-        locationHelper.start()
+        locationHelper.start(override: coordinate)
         withAnimation {
             self.currentView = .LOCATION
         }
     }
+
 
     private func setupGameRoleFlags() {
         // Only host simulates

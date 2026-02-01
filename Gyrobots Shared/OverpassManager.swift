@@ -70,70 +70,81 @@ class LocationHelper: NSObject, CLLocationManagerDelegate {
     
     var onResultFound: (@MainActor (OSMResponse?) -> Void)?
     
-    func start() {
-        locationManager.delegate = self
-        locationManager.requestWhenInUseAuthorization()
-        locationManager.startUpdatingLocation()
-    }
+    func start(override: CLLocationCoordinate2D? = nil) {
+            // Manual demo path: bypass GPS completely
+            if let override {
+                // Prevent overlapping calls
+                guard !isFetching else { return }
+                isFetching = true
+
+                Task {
+                    await self.fetchAndSelectLevel(lat: override.latitude, lon: override.longitude)
+                }
+                return
+            }
+
+            // Normal GPS path (unchanged)
+            locationManager.delegate = self
+            locationManager.requestWhenInUseAuthorization()
+            locationManager.startUpdatingLocation()
+        }
     
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard let location = locations.last, !isFetching else { return }
+            guard let location = locations.last, !isFetching else { return }
             isFetching = true
             manager.stopUpdatingLocation()
 
-            // Use a Task to handle the async network call
             Task {
-                do {
-                    let response = try await service.getNearestElement(
-                        lat: location.coordinate.latitude,
-                        lon: location.coordinate.longitude
-                    )
-                    
-                    let elements = response.elements
-                            
-                    // 1. Check for Nature/Parks
-                    if let nature = elements.first(where: { element in
-                        let leisure = element.tags?["leisure"] ?? ""
-                        let landuse = element.tags?["landuse"] ?? ""
-                        return ["park", "nature_reserve"].contains(leisure) || ["forest", "park", "grass"].contains(landuse)
-                    }) {
-                        print("Priority 1: Inside a Park/Forest - \(nature.tags?["name"] ?? "Unnamed")")
-                        AppState.shared.selectLevel(.FOREST)
-                    }
-                    // 2. Otherwise, check for Deserts/Beaches
-                    else if let desert = elements.first(where: { element in
-                        let natural = element.tags?["natural"] ?? ""
-                        return ["sand", "beach", "desert", "dune", "heath"].contains(natural)
-                    }) {
-                        print("Priority 2: Inside a Desert/Beach - \(desert.tags?["name"] ?? "Unnamed")")
-                        AppState.shared.selectLevel(.DESERT)
-                    }
-                    // 3. Finally, check for the City
-                    else if let city = elements.first(where: { element in
-                        element.tags?["boundary"] == "administrative" && element.tags?["admin_level"] == "8"
-                    }) {
-                        print("Priority 3: Inside City - \(city.tags?["name"] ?? "Unknown")")
-                        AppState.shared.selectLevel(.CITY)
-                    }
-                    else {
-                        print("No matching criteria found in elements.")
-                        AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
-                    }
-                    
-                    AppState.shared.wasLevelSetByLocation = true
-                    
-                    // Jump back to the MainActor
-                    await MainActor.run {
-                        onResultFound?(response)
-                        self.isFetching = false
-                    }
-                } catch {
-                    print("Overpass Error: \(error)")
-                    await MainActor.run {
-                        onResultFound?(nil)
-                        self.isFetching = false
-                    }
-                }
+                await self.fetchAndSelectLevel(
+                    lat: location.coordinate.latitude,
+                    lon: location.coordinate.longitude
+                )
             }
+        }
+
+    @MainActor
+    private func fetchAndSelectLevel(lat: Double, lon: Double) async {
+        do {
+            let response = try await service.getNearestElement(lat: lat, lon: lon)
+            let elements = response.elements
+
+            // 1. Check for Nature/Parks
+            if let nature = elements.first(where: { element in
+                let leisure = element.tags?["leisure"] ?? ""
+                let landuse = element.tags?["landuse"] ?? ""
+                return ["park", "nature_reserve"].contains(leisure)
+                    || ["forest", "park", "grass"].contains(landuse)
+            }) {
+                print("Priority 1: Inside a Park/Forest - \(nature.tags?["name"] ?? "Unnamed")")
+                AppState.shared.selectLevel(.FOREST)
+            }
+            // 2. Otherwise, check for Deserts/Beaches
+            else if let desert = elements.first(where: { element in
+                let natural = element.tags?["natural"] ?? ""
+                return ["sand", "beach", "desert", "dune", "heath"].contains(natural)
+            }) {
+                print("Priority 2: Inside a Desert/Beach - \(desert.tags?["name"] ?? "Unnamed")")
+                AppState.shared.selectLevel(.DESERT)
+            }
+            // 3. Finally, check for the City
+            else if let city = elements.first(where: { element in
+                element.tags?["boundary"] == "administrative" && element.tags?["admin_level"] == "8"
+            }) {
+                print("Priority 3: Inside City - \(city.tags?["name"] ?? "Unknown")")
+                AppState.shared.selectLevel(.CITY)
+            }
+            else {
+                print("No matching criteria found in elements.")
+                AppState.shared.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
+            }
+
+            AppState.shared.wasLevelSetByLocation = true
+            onResultFound?(response)
+        } catch {
+            print("Overpass Error: \(error)")
+            onResultFound?(nil)
+        }
+
+        isFetching = false
     }
 }
