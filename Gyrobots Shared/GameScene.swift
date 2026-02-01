@@ -10,10 +10,11 @@ import GameplayKit
 import SwiftUI
 
 struct PhysicsCategory {
-    static let none: UInt32 = 0      // 0
-    static let player: UInt32 = 0x1    // 1
-    static let finishLine: UInt32 = 0x2 // 2
-    static let terrain: UInt32 = 0x4    // 4
+    static let none: UInt32 = 0
+    static let player: UInt32 = 0x1
+    static let finishLine: UInt32 = 0x2
+    static let terrain: UInt32 = 0x4
+    static let item: UInt32 = 0x8
 }
 
 final class GameScene: SKScene, SKPhysicsContactDelegate {
@@ -26,9 +27,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     var bgDecorationsNode: SKNode!
 
     // MARK: - Settings
-    let moveSpeed: CGFloat = 300.0
+    var baseMoveSpeed: CGFloat = 300.0
+    var moveSpeed: CGFloat = 300.0
+    var boostMultiplier: CGFloat = 1.5
+    var isSpeedBoostActive = false
+
     let jumpForce: CGFloat = 1000.0
     let smallJumpForce: CGFloat = 1000.0
+    
+    //Player character visual tilt
+    let maxTilt: CGFloat = 0.15
+    let leanSpeed: CGFloat = 0.1
 
     // MARK: - Multiplayer
     weak var mp: MultipeerManager?
@@ -70,6 +79,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func didMove(to view: SKView) {
+        view.showsPhysics = true
         setBackground()
         
         physicsWorld.gravity = CGVector(dx: 0, dy: -12.0)
@@ -207,11 +217,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     /// Joiner mirrors the host player state.
-    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat) {
+    func applyRemotePlayerState(x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat, rotation: CGFloat) {
         guard isRemoteViewOnly else { return }
         guard player != nil else { return } // joiner might receive state before scene started
 
         player.position = CGPoint(x: x, y: player.position.y)
+        player.zRotation = rotation
         player.physicsBody?.velocity = CGVector(dx: vx, dy: vy)
     }
 
@@ -233,7 +244,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .DESERT: assetName = "Desert"
             case .CITY: assetName = "City"
             case .FOREST: assetName = "Forest"
-            default : assetName = "Desert"
+            default : assetName = "City"
         }
     
         let image1 = "Background\(assetName)1"
@@ -289,13 +300,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player = SKSpriteNode(imageNamed: imageName)
         player.name = "player"
         
-        let startY = 200
+        player.anchorPoint = CGPoint(x: 0.5, y: 0.0)
+        
+        let startY = 200 - (player.size.height / 2)
         player.position = CGPoint(x: 0, y: startY)
+        
+        let hitboxSize = CGSize(width: player.size.width * 0.5, height: player.size.height * 1.0)
+        
+        let ellipsePath = CGPath(ellipseIn: CGRect(
+            x: (-hitboxSize.width / 2) - 18,
+            y: 0.0,
+            width: hitboxSize.width,
+            height: hitboxSize.height
+        ), transform: nil)
 
-        player.physicsBody = SKPhysicsBody(
-            rectangleOf: player.size,
-            center: CGPoint(x: 0, y: 0)
-        )
+        player.physicsBody = SKPhysicsBody(polygonFrom: ellipsePath)
         player.physicsBody?.isDynamic = true
         player.physicsBody?.allowsRotation = false
         player.physicsBody?.friction = 0.2
@@ -380,39 +399,33 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         
-        // 2. Draw Path & Spawn Obstacles
+        // path and obstacles
         for i in 0..<isTerrainHigh.count {
             let chunkX = CGFloat(i * 500)
             let chunkY: CGFloat = isTerrainHigh[i] ? 100 : 0
             
-            // --- DRAWING THE PATH ---
+            // drawing
             if i == 0 {
                 path.addLine(to: CGPoint(x: chunkX, y: 0))
             } else {
                 let prevY: CGFloat = isTerrainHigh[i-1] ? 100 : 0
                 path.addLine(to: CGPoint(x: chunkX, y: prevY))
             }
-            // The slope happens in the first 100px
+            // slope
             path.addLine(to: CGPoint(x: chunkX + 100, y: chunkY))
             
-            // --- RANDOMIZED SPAWNING ---
-            // The flat area starts after the slope (at +100) and ends at +500.
-            // We define a "Safe Zone" from +130 to +470 to avoid edges.
             let flatStart: CGFloat = 130
             let flatRange: Int = 340
             
-            // A. Attempt Obstacle Spawn (Chance: 2 in 3)
+            // attempt to spawn the obstacle
             if i > 1, let rng = rng, rng.nextInt(upperBound: 3) < 2 {
-                // Pick a RANDOM spot in the flat zone
                 let randomOffset = CGFloat(rng.nextInt(upperBound: flatRange))
                 let spawnX = chunkX + flatStart + randomOffset
                 
                 spawnRandomObstacle(at: spawnX, groundY: chunkY)
             }
             
-            // B. Attempt Decoration Spawn
-            // We calculate a completely independent random position for the decoration.
-            // The spawnDecoration function inside handles the 20% chance check.
+            // attempt to spawn deco
             let randomDecoOffset = CGFloat(rng?.nextInt(upperBound: flatRange) ?? Int.random(in: 0..<flatRange))
             let decoX = chunkX + flatStart + randomDecoOffset
             
@@ -421,16 +434,42 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         
         
-        // Close shape
+        // close path
         path.addLine(to: CGPoint(x: endX+1000, y: isTerrainHigh.last ?? false ? 100 : 0))
         path.addLine(to: CGPoint(x: endX+1000, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: rightFixedX, y: bottomFixedY))
         path.closeSubpath()
+        
+        let tileTexture = SKTexture(imageNamed: "BG2")
 
         terrainNode = SKShapeNode(path: path)
-        terrainNode.fillColor = SKColor(named: "Terrain") ?? .white
+        terrainNode.fillTexture = tileTexture
+        terrainNode.fillColor = .white
         terrainNode.strokeColor = .clear
+        
+        let tileSizeInPoints = tileTexture.size()
+        let tilesAcross  = Float(terrainNode.frame.size.width  / tileSizeInPoints.width)
+        let tilesDown    = Float(terrainNode.frame.size.height / tileSizeInPoints.height)
+        let uniformX = SKUniform(name: "u_tilesX", float: tilesAcross)
+        let uniformY = SKUniform(name: "u_tilesY", float: tilesDown)
+
+        let tileShader =
+        """
+        void main() {
+            vec2 tiles = vec2(u_tilesX, u_tilesY);
+            vec2 uv = v_tex_coord * tiles;
+            vec2 tileUV = fract(uv);
+            gl_FragColor = texture2D(u_texture, tileUV);
+        }
+        """
+        
+        let shader = SKShader(
+            source: tileShader,
+            uniforms: [uniformX, uniformY]
+        )
+
+        terrainNode.fillShader = shader
         
         terrainNode.physicsBody = SKPhysicsBody(edgeLoopFrom: path)
         terrainNode.physicsBody?.isDynamic = false
@@ -483,7 +522,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
-        // get the right asset
+        // 1. Get the right asset prefix
         var assetPrefix = "City"
         switch AppState.shared.currentLevel {
         case .DESERT:
@@ -494,14 +533,55 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             assetPrefix = "City"
         }
         
-        // choose one of the three assets
-        var choice = 0
-        if let rng = rng {
-            choice = rng.nextInt(upperBound: 3)
-        } else {
-            choice = Int.random(in: 0...2)
-        }
+        // 2. Randomly choose type
+        // 0 = Small1, 1 = Small2, 2 = Large, 3 = Item (Bolt)
+        let choice = rng?.nextInt(upperBound: 4) ?? Int.random(in: 0...3)
         
+        // --- ITEM SPAWN (Exclusive) ---
+        if choice == 3 {
+            let container = SKNode()
+            let size = CGSize(width: 94, height: 103)
+            
+            // Bolt
+            let boltSprite = SKSpriteNode(imageNamed: "Bolt")
+            boltSprite.name = "bolt"
+            boltSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
+            boltSprite.zPosition = 1
+            
+            // Animation
+            let moveUp = SKAction.moveBy(x: 0, y: 10, duration: 1.0)
+            let moveDown = moveUp.reversed()
+            let sequence = SKAction.sequence([moveUp, moveDown])
+            let repeatForever = SKAction.repeatForever(sequence)
+
+            sequence.timingMode = .easeInEaseOut
+            boltSprite.run(repeatForever)
+            
+            container.addChild(boltSprite)
+            
+            // Item Plate
+            let plateSprite = SKSpriteNode(imageNamed: "ItemPlate")
+            plateSprite.name = "plate"
+            plateSprite.size = CGSize(width: size.width * 0.7, height: size.height * 0.7)
+            plateSprite.zPosition = 2
+            container.addChild(plateSprite)
+            
+            // Position and Physics
+            container.position = CGPoint(x: x, y: groundY + size.height * 0.7 / 2)
+            
+            container.physicsBody = SKPhysicsBody(rectangleOf: size)
+            container.physicsBody?.isDynamic = false
+            container.physicsBody?.categoryBitMask = PhysicsCategory.item
+            container.physicsBody?.collisionBitMask = PhysicsCategory.none
+            container.physicsBody?.contactTestBitMask = PhysicsCategory.player
+            
+            obstaclesNode.addChild(container)
+            
+            // CRITICAL FIX: Return here so we don't spawn an obstacle on top!
+            return
+        }
+
+        // --- OBSTACLE SPAWN (Runs only if choice != 3) ---
         var suffix = ""
         var isLarge = false
         
@@ -513,34 +593,38 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             suffix = "ObstacleSmall2"
             isLarge = false
         default:
+            // Case 2 falls here.
+            // Note: Case 3 will never reach here because of the 'return' above.
             suffix = "ObstacleLarge"
             isLarge = true
         }
         
-        // create sprite
+        // 3. Create Sprite
         let imageName = "\(assetPrefix)\(suffix)"
         let obstacle = SKSpriteNode(imageNamed: imageName)
         
-        // scale
+        // 4. Apply Scaling
         let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
         
         if let texture = obstacle.texture {
             let aspectRatio = texture.size().width / texture.size().height
             obstacle.size = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
-        } else { // if texture missing (should not be)
+        } else {
+            // Fallback
             obstacle.size = CGSize(width: targetHeight, height: targetHeight)
             obstacle.color = .red
         }
         
+        // 5. Position
         obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
         
-        // physics body
+        // 6. Physics Body
         obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
         obstacle.physicsBody?.isDynamic = false
         obstacle.physicsBody?.friction = 0.5
         obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
         
-        // add to container to also remove later
+        // 7. Add to Container
         obstaclesNode.addChild(obstacle)
     }
     
@@ -587,6 +671,43 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 bgDecorationsNode.addChild(bgNode)
             }
         }
+    
+    func collectItem() {
+        guard let physicsBody = player.physicsBody else { return }
+        
+        // Get all bodies currently touching the player
+        let contactedBodies = physicsBody.allContactedBodies()
+        print(contactedBodies)
+            
+        for body in contactedBodies {
+            // Compare the other body's category to your specific item category
+            if body.categoryBitMask == PhysicsCategory.item {
+                print("Player is touching an item!")
+                applySpeedBoost()
+                HapticManager.collect()
+                if let container = body.node {
+                    if let bolt = container.childNode(withName: "bolt") {
+                        bolt.removeFromParent()
+                        container.physicsBody?.categoryBitMask = PhysicsCategory.none
+                    }
+                }
+            }
+        }
+    }
+    
+    func applySpeedBoost() {
+        isSpeedBoostActive = true
+        moveSpeed = baseMoveSpeed * boostMultiplier
+        
+        // Wait 5 seconds, then return to normal
+        let wait = SKAction.wait(forDuration: 5.0)
+        let reset = SKAction.run { [weak self] in
+            self?.moveSpeed = self?.baseMoveSpeed ?? 300.0
+            self?.isSpeedBoostActive = false
+        }
+        self.run(SKAction.sequence([wait, reset]), withKey: "speedBoostTimer")
+    }
+    
     // MARK: - Game Loop
 
     override func update(_ currentTime: TimeInterval) {
@@ -597,8 +718,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             var xInput = tiltX
             if abs(xInput) < tiltDeadzone { xInput = 0 }
             player.physicsBody?.velocity.dx = xInput * moveSpeed
+            
+            let targetRotation = -CGFloat(xInput) * maxTilt
+            player.zRotation = player.zRotation + (targetRotation - player.zRotation) * leanSpeed
         }
-
+        
         // Camera follows on both devices
         if let cam = gameCamera, let p = player {
             let targetX = p.position.x
@@ -631,7 +755,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 a: Double(player.position.x),
                 b: Double(player.position.y),
                 c: Double(body.velocity.dx),
-                d: Double(body.velocity.dy)
+                d: Double(body.velocity.dy),
+                e: Double(player.zRotation)
             ))
         }
         
