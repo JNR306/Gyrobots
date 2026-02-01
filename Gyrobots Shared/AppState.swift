@@ -206,7 +206,7 @@ class AppState {
                         self.currentLevel = level
                     }
                     self.gameScene.setBackground()
-                    self.gameScene.setupBackground()
+                    //self.gameScene.setupBackground()
 
                     // IMPORTANT: transition joiner into game
                     withAnimation {
