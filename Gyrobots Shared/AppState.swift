@@ -57,7 +57,7 @@ class AppState {
     
     let locationHelper = LocationHelper()
         
-    var currentLevel: Level? = .DESERT
+    var currentLevel: Level? = nil
     var wasLevelSetByLocation = false
     var isShowingManualLocationPicker: Bool = false
     
@@ -86,6 +86,7 @@ class AppState {
     }
     
     func locate(using coordinate: CLLocationCoordinate2D? = nil) {
+        currentLevel = nil
         wasLevelSetByLocation = false
         
         // set/clear override
@@ -124,6 +125,7 @@ class AppState {
     }
 
     func browseRooms() {
+        currentLevel = nil
         mp.stop()
         isHost = false
         
@@ -134,6 +136,7 @@ class AppState {
     }
     
     func join(room: Room) {
+        currentLevel = nil
         withAnimation {
             currentView = .JOINING
         }
@@ -165,6 +168,9 @@ class AppState {
                     //Host assigns roles and immediately shows role screen
                     if self.isHost {
                         self.assignRandomRolesOnce()
+                        if let level = self.currentLevel {
+                                self.mp.send(MPMessage(type: .levelSelected, a: Double(level.rawValue)), mode: .reliable)
+                            }
                         withAnimation {
                             self.currentView = .ROLE_INTRO
                         }
@@ -199,9 +205,13 @@ class AppState {
                         self.hostStartedLevel = true
                     }
 
+                    guard let level = self.currentLevel else {
+                        print("Host has no level yet; ignoring requestLevel")
+                        return
+                    }
                     let seedToSend = Double(self.hostSeed ?? 1)
                     print("Level to send: \(self.currentLevel == .DESERT ? "Desert" : "City")")
-                    self.mp.send(MPMessage(type: .levelSeed, a: seedToSend, b: Double(self.currentLevel?.rawValue ?? 0)))
+                    self.mp.send(MPMessage(type: .levelSeed, a: seedToSend, b: Double(level.rawValue)))
 
                 case .levelSeed:
                     let seed = Int32(msg.a ?? 0)
@@ -287,6 +297,12 @@ class AppState {
                     self.gameScene.collectItem()
                 case .removeItem:
                     self.gameScene.removeItem(id: Int(msg.a ?? 0))
+                case .levelSelected:
+                    let raw = Int(msg.a ?? 0)
+                    if let lvl = Level(rawValue: raw) {
+                        self.currentLevel = lvl
+                        print("Joiner received levelSelected:", lvl)
+                    }
                 }
             }
         }
@@ -509,7 +525,6 @@ class AppState {
 
         if isHost {
             assignRandomRolesOnce()
-
             withAnimation {
                 currentView = .ROLE_INTRO
             }

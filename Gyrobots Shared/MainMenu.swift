@@ -25,7 +25,6 @@ struct MainMenu: View {
                 VStack(spacing: 10) {
                     Button {
                         HapticManager.tap()
-                        appState.selectLevelRandomly()
                         withAnimation {
                             appState.currentView = .PLAY_MENU
                         }
