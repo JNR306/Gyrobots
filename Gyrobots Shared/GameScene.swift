@@ -23,6 +23,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     var gameCamera: SKCameraNode!
     var terrainNode: SKShapeNode!
     var obstaclesNode: SKNode!
+    var bgDecorationsNode: SKNode!
 
     // MARK: - Settings
     let moveSpeed: CGFloat = 300.0
@@ -226,7 +227,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
     
     func setupBackground() {
-        // 1. Determine Asset Names
+        // get the right asset
         var assetName = "City"
         switch AppState.shared.currentLevel {
             case .DESERT: assetName = "Desert"
@@ -235,53 +236,44 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             default : assetName = "Desert"
         }
     
-    
         let image1 = "Background\(assetName)1"
         let image2 = "Background\(assetName)2"
         
-        // 2. Create Containers
+        // creat containers
         backgroundLayer1 = SKNode()
         backgroundLayer2 = SKNode()
         
-        // Z-Positions: Player is 0. Backgrounds must be negative.
-        // Layer 1 is closer than Layer 2, so it sits on top (-10 vs -20).
         backgroundLayer1.zPosition = -10
         backgroundLayer2.zPosition = -20
         
         addChild(backgroundLayer1)
         addChild(backgroundLayer2)
         
-        // 3. Helper to Tile Images
-        // This function places copies of the image side-by-side to cover the world width
+        // helper for tiling images
         func createStrip(imageName: String, parentNode: SKNode, factor: CGFloat, yOffset: CGFloat) {
                 let tempSprite = SKSpriteNode(imageNamed: imageName)
                 let width = tempSprite.size.width
                 
-                // Calculate how many sprites we need to cover the level
-                // Since parallax layers move slower, they actually need LESS width than the full level,
-                // but tiling the full length is the safest/easiest way to prevent gaps.
+                // how many sprites to cover whole level
                 let numberOfTiles = Int((rightFixedX - leftFixedX) / width) + 5
                 
                 for i in 0..<numberOfTiles {
                     let sprite = SKSpriteNode(imageNamed: imageName)
-                    sprite.anchorPoint = CGPoint(x: 0, y: 0.5) // Anchor left-center
-                    // Position starting from leftFixedX
+                    sprite.anchorPoint = CGPoint(x: 0, y: 0.5)
                     sprite.position = CGPoint(x: leftFixedX + CGFloat(i) * width, y: yOffset)
-                    
-                    // Optional: Scale to fit screen height if needed
                      sprite.size = CGSize(width: width, height: self.size.height)
                     
                     parentNode.addChild(sprite)
                 }
             }
             
-            // 4. Generate the Strips
-            createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 100.0)
-            createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 200.0)
+            // generate strips
+            createStrip(imageName: image1, parentNode: backgroundLayer1, factor: 0.2, yOffset: 150.0)
+            createStrip(imageName: image2, parentNode: backgroundLayer2, factor: 0.5, yOffset: 250.0)
         }
 
     func setupPlayer() {
-        // Remove an existing player if we’re restarting / re-entering
+        // remove an existing player if were restarting/reentering
         if let existing = player {
             existing.removeFromParent()
         }
@@ -324,6 +316,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         
         backgroundLayer1?.removeFromParent()
         backgroundLayer2?.removeFromParent()
+        
+        bgDecorationsNode?.removeFromParent()
     }
 
     // MARK: - Procedural Terrain
@@ -336,11 +330,34 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     let bottomFixedY: CGFloat = -2000
     
     func generateTerrain() {
+        bgDecorationsNode = SKNode()
+        bgDecorationsNode.zPosition = -5
+        addChild(bgDecorationsNode)
+        
         obstaclesNode = SKNode()
         addChild(obstaclesNode)
+        
+        obstaclesNode = SKNode()
+        addChild(obstaclesNode)
+        
+        let totalWidth = rightFixedX - leftFixedX
+        let fillRect = CGRect(x: leftFixedX, y: 0, width: totalWidth, height: 100)
+        
+        let valleyBackground = SKShapeNode(rect: fillRect)
+        
+        if let terrainColor = SKColor(named: "TerrainLight") {
+            valleyBackground.fillColor = terrainColor
+        } else {
+            valleyBackground.fillColor = .lightGray
+        }
+        
+        valleyBackground.strokeColor = .clear
+        valleyBackground.zPosition = -8
+        
+        addChild(valleyBackground)
         let path = CGMutablePath()
         
-        // Start the shape far below/left to ensure it's solid
+        // go far below to make sure there is no gap
         path.move(to: CGPoint(x: leftFixedX, y: bottomFixedY))
         path.addLine(to: CGPoint(x: leftFixedX, y: topFixedY))
         path.addLine(to: CGPoint(x: startX-1000, y: topFixedY))
@@ -349,12 +366,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let totalSegments = Int((endX-startX))/500
         var isTerrainHigh: [Bool] = Array(repeating: false, count: totalSegments)
         
-        // 1. Calculate Heights
+        // caculate heights
         for i in 1..<isTerrainHigh.count {
             if let rng = rng {
-                // STREAK PREVENTION:
-                // If the last 2 sections were flat (false), FORCE a hill (true).
-                // Otherwise, flip a coin (50/50).
+                // prevent the same object from spawning too many times ina row
                 if i >= 2 && !isTerrainHigh[i-1] && !isTerrainHigh[i-2] {
                     isTerrainHigh[i] = true
                 } else {
@@ -370,19 +385,41 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let chunkX = CGFloat(i * 500)
             let chunkY: CGFloat = isTerrainHigh[i] ? 100 : 0
             
-            // Draw lines
+            // --- DRAWING THE PATH ---
             if i == 0 {
                 path.addLine(to: CGPoint(x: chunkX, y: 0))
             } else {
                 let prevY: CGFloat = isTerrainHigh[i-1] ? 100 : 0
                 path.addLine(to: CGPoint(x: chunkX, y: prevY))
             }
+            // The slope happens in the first 100px
             path.addLine(to: CGPoint(x: chunkX + 100, y: chunkY))
             
+            // --- RANDOMIZED SPAWNING ---
+            // The flat area starts after the slope (at +100) and ends at +500.
+            // We define a "Safe Zone" from +130 to +470 to avoid edges.
+            let flatStart: CGFloat = 130
+            let flatRange: Int = 340
+            
+            // A. Attempt Obstacle Spawn (Chance: 2 in 3)
             if i > 1, let rng = rng, rng.nextInt(upperBound: 3) < 2 {
-                spawnRandomObstacle(at: chunkX + 250, groundY: chunkY)
+                // Pick a RANDOM spot in the flat zone
+                let randomOffset = CGFloat(rng.nextInt(upperBound: flatRange))
+                let spawnX = chunkX + flatStart + randomOffset
+                
+                spawnRandomObstacle(at: spawnX, groundY: chunkY)
             }
+            
+            // B. Attempt Decoration Spawn
+            // We calculate a completely independent random position for the decoration.
+            // The spawnDecoration function inside handles the 20% chance check.
+            let randomDecoOffset = CGFloat(rng?.nextInt(upperBound: flatRange) ?? Int.random(in: 0..<flatRange))
+            let decoX = chunkX + flatStart + randomDecoOffset
+            
+            spawnDecoration(at: decoX, groundY: chunkY)
         }
+        
+        
         
         // Close shape
         path.addLine(to: CGPoint(x: endX+1000, y: isTerrainHigh.last ?? false ? 100 : 0))
@@ -446,7 +483,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func spawnRandomObstacle(at x: CGFloat, groundY: CGFloat) {
-        // 1. Determine Asset Prefix based on Level
+        // get the right asset
         var assetPrefix = "City"
         switch AppState.shared.currentLevel {
         case .DESERT:
@@ -457,8 +494,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             assetPrefix = "City"
         }
         
-        // 2. Randomly choose type (Small1, Small2, or Large)
-        // 0 = Small1, 1 = Small2, 2 = Large
+        // choose one of the three assets
         var choice = 0
         if let rng = rng {
             choice = rng.nextInt(upperBound: 3)
@@ -481,35 +517,76 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             isLarge = true
         }
         
-        // 3. Create Sprite
+        // create sprite
         let imageName = "\(assetPrefix)\(suffix)"
         let obstacle = SKSpriteNode(imageNamed: imageName)
         
-        // 4. Apply Scaling
-        // Using your desired heights: 110 for Large, 90 for Small
+        // scale
         let targetHeight: CGFloat = isLarge ? 110.0 : 90.0
         
         if let texture = obstacle.texture {
             let aspectRatio = texture.size().width / texture.size().height
             obstacle.size = CGSize(width: targetHeight * aspectRatio, height: targetHeight)
-        } else {
-            // Fallback
+        } else { // if texture missing (should not be)
             obstacle.size = CGSize(width: targetHeight, height: targetHeight)
             obstacle.color = .red
         }
         
-        // 5. Position
         obstacle.position = CGPoint(x: x, y: groundY + obstacle.size.height / 2)
         
-        // 6. Physics Body
+        // physics body
         obstacle.physicsBody = SKPhysicsBody(rectangleOf: obstacle.size)
         obstacle.physicsBody?.isDynamic = false
         obstacle.physicsBody?.friction = 0.5
         obstacle.physicsBody?.categoryBitMask = PhysicsCategory.terrain
         
-        // 7. Add to Container
+        // add to container to also remove later
         obstaclesNode.addChild(obstacle)
     }
+    
+    func spawnDecoration(at x: CGFloat, groundY: CGFloat) {
+            // get asset
+            var assetPrefix = "City"
+            switch AppState.shared.currentLevel {
+            case .DESERT: assetPrefix = "Beach"
+            case .FOREST: assetPrefix = "Forest"
+            default:      assetPrefix = "City"
+            }   
+
+            // foreground
+            if let rng = rng, rng.nextInt(upperBound: 3) == 0 {
+                let fgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectFG")
+                
+                //scaling
+                let targetH: CGFloat = 250.0
+                if let tex = fgNode.texture {
+                    let ratio = tex.size().width / tex.size().height
+                    fgNode.size = CGSize(width: targetH * ratio, height: targetH)
+                }
+                
+                fgNode.position = CGPoint(x: x, y: groundY + fgNode.size.height / 2)
+                fgNode.zPosition = -1
+                
+                obstaclesNode.addChild(fgNode)
+            }
+            
+            // background
+            if let rng = rng, rng.nextInt(upperBound: 2) == 0 {
+                let bgNode = SKSpriteNode(imageNamed: "\(assetPrefix)ObjectBG")
+                
+                // scale
+                let targetH: CGFloat = 200.0
+                if let tex = bgNode.texture {
+                    let ratio = tex.size().width / tex.size().height
+                    bgNode.size = CGSize(width: targetH * ratio, height: targetH)
+                }
+                
+                bgNode.position = CGPoint(x: x, y: groundY + bgNode.size.height / 2)
+                bgNode.zPosition = -2
+                
+                bgDecorationsNode.addChild(bgNode)
+            }
+        }
     // MARK: - Game Loop
 
     override func update(_ currentTime: TimeInterval) {
@@ -534,11 +611,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         
         if let cam = gameCamera {
-            backgroundLayer1.position.x = cam.position.x * 0.1
+            backgroundLayer1.position.x = cam.position.x * 0.2
             backgroundLayer2.position.x = cam.position.x * 0.5
             
             backgroundLayer1.position.y = cam.position.y * 0.05
             backgroundLayer2.position.y = cam.position.y * 0.1
+            
+            bgDecorationsNode.position.x = cam.position.x * 0.1
         }
         
         AppState.shared.updateTimer()
