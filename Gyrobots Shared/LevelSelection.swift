@@ -10,6 +10,8 @@ import SwiftUI
 struct LevelSelection: View {
 
     @Environment(AppState.self) private var appState
+    
+    @State private var showManualPicker = false
 
     var body: some View {
         VStack {
@@ -28,6 +30,17 @@ struct LevelSelection: View {
                         Spacer()
                         Button {
                             HapticManager.tap()
+                            SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
+                            showManualPicker = true
+                        } label: {
+                            Image(.mapButton)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(height: 200)
+                        }
+                        Button {
+                            HapticManager.tap()
+                            SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
                             appState.selectLevel(Level(rawValue: Int.random(in: 1...3)) ?? .CITY)
                             withAnimation {
                                 appState.createRoom()
@@ -106,6 +119,19 @@ struct LevelSelection: View {
                 .padding()
             }
             Spacer()
+        }
+        .sheet(isPresented: $showManualPicker) {
+            ManualLocationPickerView(
+                onCancel: { showManualPicker = false },
+                onUse: { coord in
+                    showManualPicker = false
+                    withAnimation { appState.locate(using: coord) }
+                },
+                onUseRealGPS: {
+                    showManualPicker = false
+                    withAnimation { appState.locate(using: nil) }
+                }
+            )
         }
     }
 }

@@ -69,37 +69,9 @@ struct PlayMenu: View {
                 .padding()
             }
             Spacer()
-            Button {
-                HapticManager.tap()
-                SoundManager.shared.playSFX("menu-button-89141.mp3", volume: 0.9)
-                showManualPicker = true
-            } label: {
-                Text("Choose Location (Demo)")
-                    .font(.custom("AvenirNext-Medium", size: 18, relativeTo: .largeTitle))
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 16)
-                    .background(.white.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .onAppear {
-                AppState.shared.startMenuMusicIfNeeded()
-            }
-            .sheet(isPresented: $showManualPicker) {
-                ManualLocationPickerView(
-                    onCancel: { showManualPicker = false },
-                    onUse: { coord in
-                        showManualPicker = false
-                        withAnimation { appState.locate(using: coord) }
-                    },
-                    onUseRealGPS: {
-                        showManualPicker = false
-                        withAnimation { appState.locate(using: nil) }
-                    }
-                )
-            }
-
-            Spacer()
+                .onAppear {
+                    AppState.shared.startMenuMusicIfNeeded()
+                }
         }
     }
 }

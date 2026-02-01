@@ -43,6 +43,7 @@ struct RoleIntro: View {
                 .padding(.top, 12)
 
             Spacer()
+                .frame(maxHeight: 20)
 
             HStack {
                 Text("Your Role")
