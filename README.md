@@ -3,12 +3,12 @@
 
   # Gyrobots
   
-  **...**
+  **Tilt, Jump, and Share the Chaos to Beat the Clock!**
 </div>
 
 ## About
-...
 
+**Gyrobots** is a local multiplayer iOS game that requires two players to share control of a single robot to complete courses before the timer runs out. Roles are divided between the players: one steers the robot using gyroscope tilt controls, while the other manages jumping and collects scattered bolts to gain speed boosts. To determine the visual theme of the course, the app retrieves the players' GPS coordinates and queries OpenStreetMap to style the environment (such as a city or forest) based on their real-world surroundings. Local multiplayer connectivity is established over Wi-Fi using Apple's local networking APIs. The game is built using SwiftUI and SpriteKit, which handle the user interface, 2D physics, slopes, and obstacle collisions.
 
 ## Building from Source
 
